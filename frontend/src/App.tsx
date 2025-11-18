@@ -1,73 +1,43 @@
-// frontend/src/App.tsx
-
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useUserQuery } from './api/auth';
 
-// Import Auth Pages (Will be created next)
+// Import Pages
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-// Placeholder for the main app
-// import Dashboard from './pages/Dashboard'; 
 import WelcomePage from './pages/auth/WelcomePage';
 
-// Component to protect authenticated routes
+// --- Protected Route Component ---
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated } = useAuthStore();
-    // Show a loading/spinner here if needed.
+    const { isAuthenticated, user } = useAuthStore();
+
+    // Run /auth/me ONLY when rendering a protected route
+    const { isLoading } = useUserQuery();
+
+    if (isLoading) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center text-xl text-gray-700">
+                Checking credentials...
+            </div>
+        );
+    }
+
     if (!isAuthenticated) {
         return <Navigate to="/welcome" replace />;
     }
+
+    if (!user || !user.name) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center text-xl text-gray-700">
+                Preparing user data...
+            </div>
+        );
+    }
+
     return <>{children}</>;
 };
 
-function App() {
-    // This hook runs on load to check token validity and fetch user data
-    const { isLoading: isAuthLoading } = useUserQuery(); 
-    const { isAuthenticated } = useAuthStore();
-
-    if (isAuthLoading && isAuthenticated) {
-        // Simple loading screen while checking token
-        return <div className="h-screen w-screen flex items-center justify-center text-xl">Loading App...</div>;
-    }
-
-    return (
-        <Router>
-            <div className="min-h-screen bg-gray-50 flex flex-col">
-                <Routes>
-                    {/* Public Routes */}
-                    <Route path="/welcome" element={<WelcomePage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-                    
-                    {/* Redirect authenticated users away from Auth pages */}
-                    <Route 
-                        path="/welcome" 
-                        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <WelcomePage />}
-                    />
-                    <Route 
-                        path="/login" 
-                        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-                    />
-                    <Route 
-                        path="/register" 
-                        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />}
-                    />
-
-                    {/* Protected Routes (Main App) */}
-                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-
-                    {/* Default Route */}
-                    <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/welcome"} replace />} />
-                </Routes>
-            </div>
-        </Router>
-    );
-}
-
-export default App;
-
-// Placeholder for now
+// Placeholder Dashboard
 const Dashboard = () => {
     const { user, logout } = useAuthStore();
     return (
@@ -81,5 +51,46 @@ const Dashboard = () => {
                 Log Out
             </button>
         </div>
-    )
+    );
+};
+
+const PROTECTED_DEFAULT_PATH = "/dashboard";
+
+function App() {
+    const { isAuthenticated } = useAuthStore();
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            <Routes>
+
+                {/* 🚀 Public Routes (NO AUTH CHECK AT ALL) */}
+                <Route path="/welcome" element={<WelcomePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+
+                {/* 🔐 Protected Routes */}
+                <Route
+                    path="/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* 🌍 Catch-All */}
+                <Route
+                    path="*"
+                    element={
+                        <Navigate
+                            to={isAuthenticated ? PROTECTED_DEFAULT_PATH : "/welcome"}
+                            replace
+                        />
+                    }
+                />
+            </Routes>
+        </div>
+    );
 }
+
+export default App;

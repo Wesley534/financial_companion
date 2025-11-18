@@ -5,10 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Link, useNavigate } from 'react-router-dom';
-import { useRegisterMutation} from '@/api/auth';
+import { useRegisterMutation } from '@/api/auth'; 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { motion } from 'framer-motion';
+import { Heart, CheckCircle } from 'lucide-react'; 
+// import { UserIn } from '@/types'; // Placeholder for the User input type used in the mutation
+
+
+// --- Color and Style Constants (matching the WelcomePage) ---
+const PRIMARY_BLUE = 'hsl(220, 80%, 50%)'; // Primary CTA Color
+const BRAND_GREEN = 'hsl(140, 70%, 45%)'; // Accent Color
 
 // Re-use the full schema from auth.ts
 const RegisterSchema = z.object({
@@ -18,10 +26,22 @@ const RegisterSchema = z.object({
 });
 type RegisterFormValues = z.infer<typeof RegisterSchema>;
 
+// Framer Motion Variants for the split layout
+const slideInLeft = {
+    hidden: { opacity: 0, x: -50 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+};
+
+const slideInRight = {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+};
+
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const registerMutation = useRegisterMutation();
+  // Ensure the hook signature matches your actual implementation
+  const registerMutation = useRegisterMutation(); 
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(RegisterSchema),
@@ -34,10 +54,11 @@ const RegisterPage = () => {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-        await registerMutation.mutateAsync(values as UserIn); // Cast for type safety
+        // NOTE: Replace `UserIn` with the correct type if different
+        await registerMutation.mutateAsync(values as UserIn); 
         
-        // On successful registration, prompt for login or auto-login (we'll navigate to login for MVP)
-        alert("Registration successful! Please log in.");
+        // On successful registration, prompt for login or auto-login
+        alert("Success! You're now registered. Let's get you logged in.");
         navigate('/login'); 
 
     } catch (error: any) {
@@ -53,74 +74,160 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Sign Up</CardTitle>
-          <CardDescription>Create an account to start your SmartBudget journey.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {/* Name Field */}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div 
+        className="flex items-center justify-center min-h-screen p-6 relative"
+        style={{ 
+            backgroundImage: `url('https://images.pexels.com/photos/6266641/pexels-photo-6266641.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+        }}
+    >
+        {/* Semi-transparent Overlay for Readability */}
+        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"></div>
 
-              {/* Email Field */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="you@example.com" type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              {/* Password Field */}
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input placeholder="••••••••" type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        <div className="w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-2xl z-10">
+            
+            {/* Left Column: Image/Welcome Panel (Styled to fit the image) */}
+            <motion.div
+                className="hidden lg:flex flex-col items-center justify-center p-12 text-white relative"
+                style={{ 
+                    // This div is now part of the form container and has a distinct look
+                    backgroundColor: PRIMARY_BLUE, // Use the primary color for a clean split
+                    background: `linear-gradient(135deg, ${PRIMARY_BLUE} 0%, hsl(240, 70%, 55%) 100%)`
+                }}
+                initial="hidden"
+                animate="visible"
+                variants={slideInLeft}
+            >
+                <div className="text-center p-8">
+                    <Heart className="w-16 h-16 mx-auto mb-4 fill-white" />
+                    <h2 className="text-4xl font-extrabold mb-4">
+                        Unlock Your Savings Potential
+                    </h2>
+                    <p className="text-lg text-indigo-100">
+                        Join our community of smart money managers. Effortless tracking, smart budgets, and real-time clarity await you!
+                    </p>
+                    <ul className="mt-6 space-y-3 text-left w-fit mx-auto">
+                        <li className="flex items-center text-lg font-medium"><CheckCircle className="w-5 h-5 mr-3 text-white" /> AI Expense Tagging</li>
+                        <li className="flex items-center text-lg font-medium"><CheckCircle className="w-5 h-5 mr-3 text-white" /> Real-Time Budget Monitoring</li>
+                        <li className="flex items-center text-lg font-medium"><CheckCircle className="w-5 h-5 mr-3 text-white" /> Secure & Private</li>
+                    </ul>
+                </div>
+            </motion.div>
 
-              <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
-                {registerMutation.isPending ? 'Registering...' : 'Create Account'}
-              </Button>
-            </form>
-          </Form>
-          
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{' '}
-            <Link to="/login" className="underline font-medium">
-              Log In
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Right Column: Registration Form (White Card) */}
+            <motion.div
+                className="bg-white p-8 sm:p-12"
+                initial="hidden"
+                animate="visible"
+                variants={slideInRight}
+            >
+                <Card className="w-full border-none shadow-none">
+                    <CardHeader className="p-0 text-center lg:text-left">
+                        {/* Logo/Brand Title */}
+                        <h1 
+                            className="text-3xl font-black mb-1" 
+                            style={{ color: BRAND_GREEN }}
+                        >
+                            SMARTBUDGET
+                        </h1>
+                        <CardTitle className="text-4xl font-extrabold text-gray-900">
+                            Create Account
+                        </CardTitle>
+                        <CardDescription className="text-gray-600 mt-2 text-lg">
+                            It's quick and easy. Let's get started on your free trial!
+                        </CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="p-0 pt-6">
+                        <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                
+                                {/* Name Field */}
+                                <FormField
+                                    control={form.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Your Name</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    placeholder="John Doe" 
+                                                    {...field} 
+                                                    className="h-11 rounded-xl focus:border-blue-500"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Email Field */}
+                                <FormField
+                                    control={form.control}
+                                    name="email"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Email Address</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    placeholder="you@example.com" 
+                                                    type="email" 
+                                                    {...field} 
+                                                    className="h-11 rounded-xl focus:border-blue-500"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                
+                                {/* Password Field */}
+                                <FormField
+                                    control={form.control}
+                                    name="password"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Secure Password</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    placeholder="Minimum 6 characters" 
+                                                    type="password" 
+                                                    {...field} 
+                                                    className="h-11 rounded-xl focus:border-blue-500"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Submit Button (Primary Blue Style) */}
+                                <Button 
+                                    type="submit" 
+                                    className="w-full h-12 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                                    style={{ backgroundColor: PRIMARY_BLUE }}
+                                    disabled={registerMutation.isPending}
+                                >
+                                    {registerMutation.isPending ? 'Signing You Up...' : 'Create Account'}
+                                </Button>
+                            </form>
+                        </Form>
+                        
+                        <div className="mt-8 text-center text-base text-gray-600">
+                            By creating an account, you agree to our <Link to="/terms" className="underline font-medium" style={{ color: PRIMARY_BLUE }}>Terms of Service</Link> and <Link to="/privacy" className="underline font-medium" style={{ color: PRIMARY_BLUE }}>Privacy Policy</Link>.
+                        </div>
+                        
+                        <div className="mt-4 text-center text-sm text-gray-600">
+                            Already part of the family?{' '}
+                            <Link to="/login" className="font-semibold" style={{ color: PRIMARY_BLUE }}>
+                                Log In
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
+        </div>
     </div>
   );
 };
