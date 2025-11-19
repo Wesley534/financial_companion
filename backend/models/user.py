@@ -1,19 +1,18 @@
 # backend/models/user.py
 
 from datetime import datetime
+from typing import List
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from typing import List
-from database import Base
+from database import Base # Assumes Base is imported correctly
 
-# Note: In relational DBs, we often keep configurations in the same table,
-# or a 1-to-1 relationship. For simplicity, we'll embed the settings columns
-# directly into the User table for the MVP.
+# We need forward references for Budget and Category models
+# from .budget import Budget, Category # Imported within quotes below
 
 class User(Base):
     __tablename__ = "users"
 
-    # Core Fields
+    # Core Fields (from Auth module)
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
@@ -21,10 +20,17 @@ class User(Base):
     currency: Mapped[str] = mapped_column(String(10), default="USD")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    # Settings Fields (embedded as per spec)
+    # --- NEW FIELD FOR SETUP STATUS ---
+    is_setup_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+    # ----------------------------------
+
+    # Settings Fields
     auto_categorization: Mapped[bool] = mapped_column(Boolean, default=True)
     strict_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     ai_insights: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # Relationships (will be added later)
-    # budgets: Mapped[List["Budget"]] = relationship(back_populates="user")
+    # --- ADD RELATIONSHIPS ---
+    budgets: Mapped[List["Budget"]] = relationship(back_populates="user")
+    categories: Mapped[List["Category"]] = relationship(back_populates="user")
+    # -------------------------
+    # NOTE: You will need to add relationships for Transactions, ShoppingLists, Goals later.
