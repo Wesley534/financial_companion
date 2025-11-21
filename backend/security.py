@@ -1,3 +1,5 @@
+# security.py
+
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from jose import JWTError, jwt
@@ -18,12 +20,20 @@ from database import get_db
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_password_hash(password: str) -> str:
-    # Truncate password to 72 characters (bcrypt limit)
-    truncated = password[:72]
-    return pwd_context.hash(truncated)
+    # Encode the password string to bytes (UTF-8 by default).
+    # Truncate the resulting bytes to a maximum of 72 bytes (bcrypt limit).
+    truncated_bytes = password.encode('utf-8')[:72]
+    
+    # Pass the byte-truncated password to the hasher
+    return pwd_context.hash(truncated_bytes)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password[:72], hashed_password)
+    # Encode the plain password string to bytes.
+    # Truncate the resulting bytes to 72 bytes before verification.
+    truncated_plain_bytes = plain_password.encode('utf-8')[:72]
+    
+    # Verify using the byte-truncated password
+    return pwd_context.verify(truncated_plain_bytes, hashed_password)
 
 # --- JWT Token Generation & Verification ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
