@@ -68,7 +68,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Determine default protected path
-const getProtectedDefaultPath = (user: { id: number } | null | undefined): string => {
+const getProtectedDefaultPath = (user: Parameters<typeof hasCompletedSetup>[0]): string => {
   return hasCompletedSetup(user) ? '/dashboard' : '/setup';
 };
 

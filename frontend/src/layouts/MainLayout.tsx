@@ -257,14 +257,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
 
                 {/* Main Action Button (e.g., Add Transaction) */}
                 <Link to="/transactions/add">
-                    <Button 
-                        className="rounded-xl shadow-md font-semibold h-9 px-4 text-sm"
-                        style={{ backgroundColor: BRAND_GREEN }}
-                        whileHover={{ scale: 1.05 }}
-                    >
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Quick Add
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.05 }} className="inline-block">
+                        <Button 
+                            className="rounded-xl shadow-md font-semibold h-9 px-4 text-sm"
+                            style={{ backgroundColor: BRAND_GREEN }}
+                        >
+                            <ArrowRight className="w-4 h-4 mr-2" />
+                            Quick Add
+                        </Button>
+                    </motion.div>
                 </Link>
             </div>
         </header>

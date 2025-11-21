@@ -9,7 +9,6 @@ import { Separator } from '@/components/ui/separator';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/authStore';
 import { useSetupBudgetMutation } from '@/api/budget'; 
 import type { BudgetInitialSetup } from '@/api/budget'; 
 
@@ -32,7 +31,6 @@ const INITIAL_STATE: SetupState = {
 const SetupWizardPage = () => {
     const navigate = useNavigate();
     // user is only needed for context, not for setup status in this final version
-    const { user } = useAuthStore(); 
     const setupMutation = useSetupBudgetMutation();
 
     const [step, setStep] = useState(1);

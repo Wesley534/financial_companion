@@ -20,7 +20,7 @@ import {
 // Component Imports
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -111,7 +111,7 @@ const MonthlyCloseoutWizardPage: React.FC = () => {
     });
     
     // --- Step 3: Sweep State ---
-    const { data: goals, isLoading: isGoalsLoading } = useQuery<GoalOut[]>({
+    const { data: goals } = useQuery<GoalOut[]>({
         queryKey: ['goalsList'],
         queryFn: fetchGoals,
         enabled: step === 3,
@@ -141,7 +141,7 @@ const MonthlyCloseoutWizardPage: React.FC = () => {
     // --- Step 4: Mutation ---
     const startNewMonthMutation = useMutation({
         mutationFn: () => startNewMonth(currentMonth),
-        onSuccess: (data) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['currentBudget'] }); // Force dashboard refresh
             queryClient.invalidateQueries({ queryKey: ['allGoals'] });
             // Redirect to the new dashboard view (or refresh current page if on dashboard)

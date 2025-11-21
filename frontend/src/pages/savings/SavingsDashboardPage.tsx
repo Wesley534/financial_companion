@@ -16,7 +16,7 @@ import {
     TrendingUp,
     Target
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -86,7 +86,7 @@ const GoalCard: React.FC<{ goal: GoalOut }> = ({ goal }) => {
                     <span>Target: <span className="font-semibold text-gray-800">{formatCurrency(goal.target_amount)}</span></span>
                 </div>
                 
-                <Progress value={goal.progress_percent} className="h-2" indicatorColor={progressColor} />
+                <Progress value={goal.progress_percent} className="h-2" style={{ '--progress-color': progressColor } as React.CSSProperties} />
                 
                 <div className="grid grid-cols-2 gap-4 border-t pt-3">
                     <div className="text-sm">
@@ -113,7 +113,7 @@ const GoalCard: React.FC<{ goal: GoalOut }> = ({ goal }) => {
 const NewGoalForm: React.FC<{ setIsOpen: (open: boolean) => void }> = ({ setIsOpen }) => {
     const queryClient = useQueryClient();
     const form = useForm<z.infer<typeof NewGoalSchema>>({
-        resolver: zodResolver(NewGoalSchema),
+        resolver: zodResolver(NewGoalSchema) as Resolver<z.infer<typeof NewGoalSchema>, any>,
         defaultValues: { name: '', target_amount: 0, monthly_contribution: 0 },
     });
 

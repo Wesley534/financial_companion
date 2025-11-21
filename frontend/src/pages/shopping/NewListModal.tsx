@@ -25,8 +25,10 @@ interface CategoryOut {
 // --- Validation Schema ---
 const NewListSchema = z.object({
     name: z.string().min(3, "List name is required."),
-    category_id: z.coerce.number().min(1, "A budget category is required."),
-});
+    category_id: z.number().min(1, "A budget category is required."),
+}).strict();
+
+type NewListFormData = z.infer<typeof NewListSchema>;
 
 interface NewListModalProps {
     children: React.ReactNode;
@@ -41,11 +43,10 @@ const fetchCategories = async (): Promise<CategoryOut[]> => {
 
 // --- Main Component ---
 const NewListModal: React.FC<NewListModalProps> = ({ children }) => {
+    const [isOpen, setIsOpen] = useState(false);
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const [isOpen, setIsOpen] = useState(false);
-    
-    const form = useForm<z.infer<typeof NewListSchema>>({
+    const form = useForm<NewListFormData>({
         resolver: zodResolver(NewListSchema),
         defaultValues: { name: '', category_id: 0 },
     });

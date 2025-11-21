@@ -92,7 +92,10 @@ const SingleShoppingListPage: React.FC = () => {
     // 1. Item Form Setup
     const itemForm = useForm<z.infer<typeof NewItemSchema>>({
         defaultValues: { name: '', estimated_price: 0, quantity: 1 },
-        resolver: zodResolver(NewItemSchema),
+        // zodResolver can produce a resolver type that doesn't exactly match the inferred useForm types
+        // when using coercion; cast to any to satisfy the expected Resolver signature.
+        resolver: zodResolver(NewItemSchema) as any,
+        mode: 'onBlur',
     });
 
     // 2. State for editing and new list creation

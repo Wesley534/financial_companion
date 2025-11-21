@@ -9,7 +9,7 @@ import { useLoginMutation, UserInSchema } from '@/api/auth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion } from 'framer-motion';
+import { motion, cubicBezier } from 'framer-motion';
 import { Lock, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import apiClient from '@/api/client';
@@ -22,9 +22,16 @@ const BRAND_GREEN = 'hsl(140, 70%, 45%)';
 const LoginSchema = UserInSchema.omit({ name: true });
 type LoginFormValues = z.infer<typeof LoginSchema>;
 
-// Framer Motion Variants
-const slideInLeft = { hidden: { opacity: 0, x: -50 }, visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } } };
-const slideInRight = { hidden: { opacity: 0, x: 50 }, visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } } };
+// Framer Motion Variants using cubicBezier easing
+const slideInLeft = {
+  hidden: { opacity: 0, x: -50 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: cubicBezier(0.4, 0, 0.2, 1) } },
+};
+
+const slideInRight = {
+  hidden: { opacity: 0, x: 50 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: cubicBezier(0.4, 0, 0.2, 1) } },
+};
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -38,15 +45,15 @@ const LoginPage = () => {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      // 1️⃣ Call login mutation
-      const res = await loginMutation.mutateAsync(values);
+      // Call login mutation
+      await loginMutation.mutateAsync(values);
 
-      // 2️⃣ Fetch current user
+      // Fetch current user
       const userRes = await apiClient.get('/auth/me');
       const user = userRes.data;
       setUser(user);
 
-      // 3️⃣ Navigate based on setup status
+      // Navigate based on setup status
       navigate(user.is_setup_complete ? '/dashboard' : '/setup', { replace: true });
 
     } catch (error: any) {
@@ -57,9 +64,9 @@ const LoginPage = () => {
   };
 
   return (
-    <div 
+    <div
       className="flex items-center justify-center min-h-screen p-6 relative"
-      style={{ 
+      style={{
         backgroundImage: `url('https://images.pexels.com/photos/6266641/pexels-photo-6266641.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -69,7 +76,12 @@ const LoginPage = () => {
 
       <div className="w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-2xl z-10">
         {/* Left Column: Form */}
-        <motion.div className="bg-white p-8 sm:p-12 order-2 lg:order-1" initial="hidden" animate="visible" variants={slideInLeft}>
+        <motion.div
+          className="bg-white p-8 sm:p-12 order-2 lg:order-1"
+          initial="hidden"
+          animate="visible"
+          variants={slideInLeft}
+        >
           <Card className="w-full border-none shadow-none">
             <CardHeader className="p-0 text-center lg:text-left">
               <h1 className="text-3xl font-black mb-1" style={{ color: BRAND_GREEN }}>SMARTBUDGET</h1>
@@ -102,8 +114,13 @@ const LoginPage = () => {
                   <div className="text-right text-sm">
                     <Link to="/forgot-password" className="font-medium hover:underline" style={{ color: PRIMARY_BLUE }}>Forgot Password?</Link>
                   </div>
-                  <Button type="submit" className="w-full h-12 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300" style={{ backgroundColor: PRIMARY_BLUE }} disabled={loginMutation.isLoading}>
-                    {loginMutation.isLoading ? 'Accessing Account...' : 'Log In'}
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    style={{ backgroundColor: PRIMARY_BLUE }}
+                    disabled={loginMutation.isPending}
+                  >
+                    {loginMutation.isPending ? 'Accessing Account...' : 'Log In'}
                   </Button>
                 </form>
               </Form>
@@ -116,11 +133,19 @@ const LoginPage = () => {
         </motion.div>
 
         {/* Right Column: Illustration */}
-        <motion.div className="hidden lg:flex flex-col items-center justify-center p-12 text-white relative order-1 lg:order-2" style={{ background: `linear-gradient(135deg, ${BRAND_GREEN} 0%, hsl(160, 60%, 45%) 100%)` }} initial="hidden" animate="visible" variants={slideInRight}>
+        <motion.div
+          className="hidden lg:flex flex-col items-center justify-center p-12 text-white relative order-1 lg:order-2"
+          style={{ background: `linear-gradient(135deg, ${BRAND_GREEN} 0%, hsl(160, 60%, 45%) 100%)` }}
+          initial="hidden"
+          animate="visible"
+          variants={slideInRight}
+        >
           <div className="text-center p-8">
             <Zap className="w-16 h-16 mx-auto mb-4 fill-white" />
             <h2 className="text-4xl font-extrabold mb-4">Instant Access. Smart Results.</h2>
-            <p className="text-lg text-white/90">Your dashboard is waiting. Get back to tracking, planning, and achieving your financial goals.</p>
+            <p className="text-lg text-white/90">
+              Your dashboard is waiting. Get back to tracking, planning, and achieving your financial goals.
+            </p>
             <ul className="mt-6 space-y-3 text-left w-fit mx-auto">
               <li className="flex items-center text-lg font-medium"><Lock className="w-5 h-5 mr-3 text-white" /> Industry-Leading Security</li>
               <li className="flex items-center text-lg font-medium"><Lock className="w-5 h-5 mr-3 text-white" /> Quick, Seamless Login</li>
