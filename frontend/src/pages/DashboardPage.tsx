@@ -1,11 +1,14 @@
 // frontend/src/pages/DashboardPage.tsx
 
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { useAuthStore } from '@/store/authStore';
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/api/client'; // Import the centralized API client
 import { 
     DollarSign, 
     Zap, 
@@ -18,67 +21,100 @@ import {
     PlusCircle, 
     ShoppingCart, 
     ClipboardList, 
-    BookOpen 
+    Loader2
 } from 'lucide-react';
 
-// --- Theme Colors (Based on WelcomePage) ---
+// --- Type Definitions (Matching FastAPI Schemas) ---
+interface CategoryOut {
+    id: number;
+    name: string;
+    type: string;
+    planned: number;
+    actual: number;
+    icon: string;
+    color: string;
+}
+
+interface BudgetTotals {
+    planned: number;
+    actual: number;
+    difference: number;
+}
+
+interface MonthlyBudgetOut {
+    id: number;
+    month: string;
+    income: number;
+    starting_balance: number;
+    free_to_spend: number;
+    totals: BudgetTotals;
+    categories: CategoryOut[];
+}
+
+interface InsightsResponse {
+    insights: { type: string; text: string }[];
+}
+
+interface PredictStatusResponse {
+    projection: string;
+    risk_level: 'High' | 'Medium' | 'Low';
+}
+
+// --- Theme Colors ---
 const PRIMARY_BLUE = 'hsl(220, 80%, 50%)';
 const BRAND_GREEN = 'hsl(140, 70%, 45%)';
-const ACCENT_YELLOW = 'hsl(40, 85%, 60%)';
 
-
-// --- Utility Functions & Mock Data ---
+// --- Utility Functions ---
 
 // Function to calculate day progress for the progress bar
-const calculateMonthProgress = (start: Date, end: Date, current: Date) => {
+const calculateMonthProgress = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const totalDays = end.getTime() - start.getTime();
-    const elapsedDays = current.getTime() - start.getTime();
+    const elapsedDays = now.getTime() - start.getTime();
     return Math.min(100, Math.round((elapsedDays / totalDays) * 100));
 };
 
-const mockData = {
-    cashBalance: 4520.75,
-    freeToSpend: 1250.00,
-    monthStart: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    monthEnd: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-    currentDay: new Date(),
-    categories: [
-        { id: 1, name: "Rent/Mortgage", planned: 2000, actual: 2000, variance: 0 },
-        { id: 2, name: "Groceries", planned: 600, actual: 450, variance: 150 }, // Under budget
-        { id: 3, name: "Dining Out", planned: 250, actual: 320, variance: -70 }, // Over budget
-        { id: 4, name: "Transportation", planned: 150, actual: 100, variance: 50 },
-        { id: 5, name: "Utilities", planned: 180, actual: 195, variance: -15 },
-    ],
-    insights: [
-        { type: "alert", text: "Spending in 'Dining Out' is 28% over budget.", icon: AlertTriangle, style: "text-red-600 bg-red-50" },
-        { type: "projection", text: "On track to hit your savings goal 2 months early!", icon: TrendingUp, style: `text-[${BRAND_GREEN}] bg-[hsl(140,70%,95%)]` },
-        { type: "warning", text: "Grocery spending is low, consider allocating $50 to savings.", icon: Zap, style: `text-[${ACCENT_YELLOW}] bg-[hsl(40,85%,90%)]` },
-        { type: "tip", text: "You have spent 50% less on streaming this month.", icon: BookOpen, style: `text-[${PRIMARY_BLUE}] bg-[hsl(220,80%,95%)]` },
-    ]
+// --- API Fetching Functions ---
+
+const fetchCurrentBudget = async (): Promise<MonthlyBudgetOut> => {
+    const response = await apiClient.get('/budget/current');
+    return response.data;
+};
+
+const fetchAIPrediction = async (monthProgress: number, currentVariance: number): Promise<PredictStatusResponse> => {
+    const response = await apiClient.post('/ai/predict-budget-status', {
+        month_progress_percent: monthProgress,
+        current_variance_percent: currentVariance // Total Actual / Total Planned
+    });
+    return response.data;
+};
+
+const fetchAIInsights = async (spendingSummaryText: string): Promise<InsightsResponse> => {
+    const response = await apiClient.post('/ai/insights', {
+        spending_summary_text: spendingSummaryText,
+        // In a real app, you'd include goals, strict_mode, etc. here
+    });
+    return response.data;
 };
 
 // --- Component Fragments ---
 
 interface CategoryVarianceProps {
-    name: string;
-    planned: number;
-    actual: number;
-    variance: number;
+    category: CategoryOut;
 }
 
-const CategoryVarianceCard: React.FC<CategoryVarianceProps> = ({ name, planned, actual, variance }) => {
+const CategoryVarianceCard: React.FC<CategoryVarianceProps> = ({ category }) => {
+    const { name, planned, actual } = category;
+    const variance = planned - actual;
     const isUnderBudget = variance >= 0;
     const progress = (actual / planned) * 100;
-    
-    // Custom colors using the brand palette
-    const barColor = isUnderBudget && progress <= 100 
-        ? `bg-[${BRAND_GREEN}]` 
-        : 'bg-red-500';
-    
+    const barColor = isUnderBudget && progress <= 100 ? `bg-[${BRAND_GREEN}]` : 'bg-red-500';
     const varianceSign = isUnderBudget ? '+' : '-';
     const varianceStyle = isUnderBudget 
         ? { color: BRAND_GREEN, className: 'text-sm font-semibold flex items-center' } 
-        : { color: 'rgb(239, 68, 68)', className: 'text-sm text-red-600 font-semibold flex items-center' }; // Tailwind Red
+        : { color: 'rgb(239, 68, 68)', className: 'text-sm text-red-600 font-semibold flex items-center' };
     
     const displayProgress = Math.min(100, progress);
 
@@ -114,17 +150,29 @@ const CategoryVarianceCard: React.FC<CategoryVarianceProps> = ({ name, planned, 
 
 interface InsightProps {
     text: string;
-    Icon: React.ElementType;
-    style: string;
+    type: string;
 }
 
-const InsightCard: React.FC<InsightProps> = ({ text, Icon, style }) => {
-    // Custom color extraction for icon
-    const iconColor = style.match(/text-\[([^\]]+)\]/)?.[1] || 'text-gray-800';
+const InsightCard: React.FC<InsightProps> = ({ text, type }) => {
+    let Icon: React.ElementType = FileText;
+    let style = "text-gray-600 bg-gray-50";
+
+    if (type === 'alert') {
+        Icon = AlertTriangle;
+        style = "text-red-600 bg-red-50 border-red-200";
+    } else if (type === 'projection') {
+        Icon = TrendingUp;
+        style = `text-[${BRAND_GREEN}] bg-[hsl(140,70%,95%)] border-[hsl(140,70%,85%)]`;
+    } else if (type === 'tip' || type === 'warning') {
+        Icon = Zap;
+        style = `text-[${PRIMARY_BLUE}] bg-[hsl(220,80%,95%)] border-[hsl(220,80%,85%)]`;
+    }
+
+    // Adjust color for icon when background is light
+    const iconColor = type === 'alert' ? 'rgb(239, 68, 68)' : type === 'projection' ? BRAND_GREEN : PRIMARY_BLUE;
 
     return (
         <div className={`flex items-start p-3 rounded-xl border ${style} border-opacity-30`}>
-            {/* Set icon color dynamically from the style prop for consistency */}
             <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 mr-3`} style={{ color: iconColor }} />
             <p className="text-sm text-gray-700">{text}</p>
         </div>
@@ -135,17 +183,77 @@ const InsightCard: React.FC<InsightProps> = ({ text, Icon, style }) => {
 
 const DashboardPage = () => {
     const { user } = useAuthStore();
-    const monthProgress = calculateMonthProgress(
-        mockData.monthStart, 
-        mockData.monthEnd, 
-        mockData.currentDay
-    );
+    const monthProgress = calculateMonthProgress();
+    const monthName = new Date().toLocaleString('default', { month: 'long' });
 
-    const monthName = mockData.monthStart.toLocaleString('default', { month: 'long' });
+    // 1. Fetch Current Budget Data
+    const { data: budgetData, isLoading: isBudgetLoading, error: budgetError } = useQuery<MonthlyBudgetOut>({
+        queryKey: ['currentBudget'],
+        queryFn: fetchCurrentBudget,
+        staleTime: 5 * 60 * 1000, // Stale for 5 minutes
+    });
+    
+    // Derived values for AI calls
+    const totalPlanned = budgetData?.totals.planned || 0;
+    const totalActual = budgetData?.totals.actual || 0;
+    // Current variance (Actual/Planned) - used to determine risk level
+    const currentVarianceRatio = totalPlanned > 0 ? totalActual / totalPlanned : 0;
+    
+    // Generate a simple spending summary for the Insights API
+    const spendingSummary = `Total Planned: $${totalPlanned}, Total Actual: $${totalActual}, Month Progress: ${monthProgress}%. Categories: ${budgetData?.categories.map(c => `${c.name} (Planned: ${c.planned}, Actual: ${c.actual})`).join(', ')}`;
+    
+    // 2. Fetch AI Prediction for Health Header
+    const { data: predictionData, isLoading: isPredictionLoading } = useQuery<PredictStatusResponse>({
+        queryKey: ['aiPrediction', monthProgress, currentVarianceRatio],
+        queryFn: () => fetchAIPrediction(monthProgress, currentVarianceRatio),
+        enabled: !!budgetData, // Only run once budget data is available
+        staleTime: 10 * 60 * 1000,
+    });
+
+    // 3. Fetch AI Insights for Feed
+    const { data: insightsData, isLoading: isInsightsLoading } = useQuery<InsightsResponse>({
+        queryKey: ['aiInsights', spendingSummary],
+        queryFn: () => fetchAIInsights(spendingSummary),
+        enabled: !!budgetData, // Only run once budget data is available
+        staleTime: 30 * 60 * 1000,
+    });
+
+    if (isBudgetLoading) {
+        return (
+            <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <p className="ml-3 text-gray-600">Loading budget data...</p>
+            </div>
+        );
+    }
+
+    if (budgetError) {
+        return (
+            <div className="p-8 text-center text-red-600 border border-red-200 bg-red-50 rounded-lg">
+                <h2 className="text-xl font-bold mb-2">Error Loading Data</h2>
+                <p>Could not fetch budget data. Please check your API server connection.</p>
+                <p className="text-sm mt-2">Error: {budgetError.message}</p>
+            </div>
+        );
+    }
+
+    const freeToSpend = budgetData?.free_to_spend || 0;
+    const isBudgetBalanced = freeToSpend === 0;
+    const healthProjection = predictionData?.projection || (totalActual <= totalPlanned ? "Budget on track." : "Over budget trend detected.");
+    
+    let healthColor = 'text-green-600';
+    if (predictionData?.risk_level === 'High') {
+        healthColor = 'text-red-600';
+    } else if (predictionData?.risk_level === 'Medium') {
+        healthColor = 'text-orange-600';
+    }
+
+    const healthStyle = healthColor === 'text-green-600' ? { color: BRAND_GREEN } : {};
+
 
     return (
         <motion.div 
-            className="p-4 md:p-8 bg-gray-50 min-h-screen font-sans antialiased"
+            className="p-4 md:p-8 bg-gray-50 min-h-screen"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -153,10 +261,11 @@ const DashboardPage = () => {
             {/* 1. Health Header */}
             <header className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.name || 'User'}!</h1>
-                <p className="text-lg font-medium flex items-center" style={{ color: BRAND_GREEN }}>
-                    <Zap className="w-5 h-5 mr-2" style={{ color: BRAND_GREEN }} />
-                    Budget Health: Excellent. Your funds are fully allocated for {monthName}.
+                <p className={`text-lg font-medium flex items-center ${healthColor}`} style={healthStyle}>
+                    <Zap className="w-5 h-5 mr-2" style={healthStyle} />
+                    Budget Health: {healthProjection}
                 </p>
+                {isPredictionLoading && <p className="text-sm text-gray-500 mt-1">Calculating projection...</p>}
             </header>
 
             {/* Main Grid Layout */}
@@ -173,8 +282,8 @@ const DashboardPage = () => {
                                 <DollarSign className="h-4 w-4 text-gray-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold text-gray-900">${mockData.cashBalance.toFixed(2)}</div>
-                                <p className="text-xs text-gray-500 mt-1">Total across all linked accounts</p>
+                                <div className="text-3xl font-bold text-gray-900">${(budgetData?.starting_balance || 0).toFixed(2)}</div>
+                                <p className="text-xs text-gray-500 mt-1">Starting balance (Proxy)</p>
                             </CardContent>
                         </Card>
 
@@ -184,8 +293,8 @@ const DashboardPage = () => {
                                 <Target className="h-4 w-4 text-gray-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold" style={{ color: BRAND_GREEN }}>${mockData.freeToSpend.toFixed(2)}</div>
-                                <p className="text-xs text-gray-500 mt-1">Available to budget or roll over</p>
+                                <div className="text-3xl font-bold" style={{ color: BRAND_GREEN }}>${freeToSpend.toFixed(2)}</div>
+                                <p className="text-xs text-gray-500 mt-1">{isBudgetBalanced ? 'Funds fully allocated' : 'Available to budget or roll over'}</p>
                             </CardContent>
                         </Card>
                     </div>
@@ -197,21 +306,22 @@ const DashboardPage = () => {
                         </CardHeader>
                         <CardContent>
                             <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                <span>{mockData.monthStart.toLocaleDateString()}</span>
-                                <span>Day {mockData.currentDay.getDate()} of {mockData.monthEnd.getDate()}</span>
-                                <span>{mockData.monthEnd.toLocaleDateString()}</span>
+                                <span>{new Date(budgetData?.month + '-01').toLocaleDateString()}</span>
+                                <span>{monthProgress}% Complete</span>
+                                <span>{new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString()}</span>
                             </div>
-                            {/* Using an arbitrary value utility for the indicator color */}
                             <Progress value={monthProgress} className="h-3" indicatorColor={`bg-[${PRIMARY_BLUE}]`} />
-                            <p className="text-sm text-center text-gray-500 mt-2">{monthProgress}% of the month completed.</p>
+                            <p className="text-sm text-center text-gray-500 mt-2">Day {new Date().getDate()} of {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} completed.</p>
                         </CardContent>
                     </Card>
 
                     {/* 5. Variance Cards (Category Planned vs Actual) */}
                     <h2 className="text-2xl font-semibold text-gray-800 pt-4">Budget Variance: {monthName}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {mockData.categories.map(cat => (
-                            <CategoryVarianceCard key={cat.id} {...cat} />
+                        {budgetData?.categories
+                            .filter(cat => cat.type !== 'Savings') // Filter out Savings for the main expense variance view
+                            .map(cat => (
+                            <CategoryVarianceCard key={cat.id} category={cat} />
                         ))}
                     </div>
 
@@ -228,18 +338,25 @@ const DashboardPage = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
-                                <PlusCircle className="w-5 h-5 mr-3" style={{ color: BRAND_GREEN }} />
-                                Add New Transaction
-                            </Button>
-                            <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
-                                <ShoppingCart className="w-5 h-5 mr-3" style={{ color: PRIMARY_BLUE }} />
-                                Add Shopping Item
-                            </Button>
-                            <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
-                                <ClipboardList className="w-5 h-5 mr-3" style={{ color: ACCENT_YELLOW }} />
-                                View Full Budget
-                            </Button>
+                            {/* Assuming routes are set up from MainLayout */}
+                            <Link to="/transactions/add" className="block">
+                                <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
+                                    <PlusCircle className="w-5 h-5 mr-3" style={{ color: BRAND_GREEN }} />
+                                    Add New Transaction
+                                </Button>
+                            </Link>
+                            <Link to="/shopping/lists" className="block">
+                                <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
+                                    <ShoppingCart className="w-5 h-5 mr-3" style={{ color: PRIMARY_BLUE }} />
+                                    View Shopping Lists
+                                </Button>
+                            </Link>
+                            <Link to="/budget/monthly" className="block">
+                                <Button className="w-full justify-start h-10 rounded-xl font-medium border border-gray-200 hover:bg-gray-100 bg-white text-gray-800" variant="secondary">
+                                    <ClipboardList className="w-5 h-5 mr-3" style={{ color: PRIMARY_BLUE }} />
+                                    View Full Budget
+                                </Button>
+                            </Link>
                         </CardContent>
                     </Card>
 
@@ -252,15 +369,21 @@ const DashboardPage = () => {
                             <CardDescription>AI-powered suggestions and alerts for your finances.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {mockData.insights.map((insight, index) => (
-                                // InsightCard styles are updated to use arbitrary HSL values for background and text
+                            {isInsightsLoading && (
+                                <div className="flex items-center text-sm text-gray-500">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Generating insights...
+                                </div>
+                            )}
+                            {insightsData?.insights.map((insight, index) => (
                                 <InsightCard 
                                     key={index}
                                     text={insight.text}
-                                    Icon={insight.icon}
-                                    style={insight.style}
+                                    type={insight.type}
                                 />
                             ))}
+                            {insightsData?.insights.length === 0 && !isInsightsLoading && (
+                                <p className="text-sm text-gray-500 italic">No pressing insights or alerts at this time.</p>
+                            )}
                         </CardContent>
                     </Card>
 

@@ -14,17 +14,17 @@ import SetupWizardPage from './pages/setup/SetupWizard'; // Corrected naming con
 
 // Module Pages (Import all your module pages here)
 import DashboardPage from './pages/DashboardPage';
-// import MonthlyBudgetPage from './pages/budget/MonthlyBudgetPage';
-// import CategoryDetailsPage from './pages/budget/CategoryDetailsPage';
-// import TransactionsListPage from './pages/transactions/TransactionsListPage';
-// import AddTransactionPage from './pages/transactions/AddTransactionPage';
-// import EditTransactionPage from './pages/transactions/EditTransactionPage';
-// import ShoppingListsOverviewPage from './pages/shopping/ShoppingListsOverviewPage';
-// import SingleShoppingListPage from './pages/shopping/SingleShoppingListPage';
-// import CheckoutPage from './pages/shopping/CheckoutPage';
-// import SavingsDashboardPage from './pages/savings/SavingsDashboardPage';
-// import SingleSavingsGoalPage from './pages/savings/SingleSavingsGoalPage';
-// import MonthlyCloseoutWizardPage from './pages/monthend/MonthlyCloseoutWizardPage';
+import MonthlyBudgetPage from './pages/budget/MonthlyBudgetPage';
+import CategoryDetailsPage from './pages/budget/CategoryDetailsPage';
+import TransactionsListPage from './pages/transactions/TransactionsListPage';
+import AddTransactionPage from './pages/transactions/AddTransactionPage';
+import EditTransactionPage from './pages/transactions/EditTransactionPage';
+import ShoppingListsOverviewPage from './pages/shopping/ShoppingListsOverviewPage';
+import SingleShoppingListPage from './pages/shopping/SingleShoppingListPage';
+import CheckoutPage from './pages/shopping/CheckoutPage';
+import SavingsDashboardPage from './pages/savings/SavingsDashboardPage';
+import SingleSavingsGoalPage from './pages/savings/SingleSavingsGoalPage';
+import MonthlyCloseoutWizardPage from './pages/monthend/MonthlyCloseoutWizardPage';
 
 
 // --- Protected Route Component ---
@@ -118,29 +118,29 @@ function App() {
           
           {/* BUDGET MODULE (6, 7) */}
           <Route path="/budget" element={<Navigate to="/budget/monthly" replace />} />
-          {/* <Route path="/budget/monthly" element={<MonthlyBudgetPage />} /> */}
-          {/* <Route path="/budget/categories" element={<CategoryDetailsPage />} /> */}
+          <Route path="/budget/monthly" element={<MonthlyBudgetPage />} />
+          <Route path="/budget/categories/:id" element={<CategoryDetailsPage />} />
 
           {/* TRANSACTION MODULE (8, 9, 10) */}
           <Route path="/transactions" element={<Navigate to="/transactions/list" replace />} />
-          {/* <Route path="/transactions/list" element={<TransactionsListPage />} /> */}
-          {/* <Route path="/transactions/add" element={<AddTransactionPage />} /> */}
-          {/* <Route path="/transactions/edit/:id" element={<EditTransactionPage />} /> */}
+          <Route path="/transactions/list" element={<TransactionsListPage />} />
+          <Route path="/transactions/add" element={<AddTransactionPage />} />
+          <Route path="/transactions/edit/:id" element={<EditTransactionPage />} />
           
           {/* SHOPPING LIST MODULE (11, 12, 13) */}
           <Route path="/shopping" element={<Navigate to="/shopping/lists" replace />} />
-          {/* <Route path="/shopping/lists" element={<ShoppingListsOverviewPage />} /> */}
-          {/* <Route path="/shopping/list/:id" element={<SingleShoppingListPage />} /> */}
-          {/* <Route path="/shopping/checkout" element={<CheckoutPage />} /> */}
+          <Route path="/shopping/lists" element={<ShoppingListsOverviewPage />} />
+          <Route path="/shopping/list/:id" element={<SingleShoppingListPage />} />
+          <Route path="/shopping/checkout" element={<CheckoutPage />} />
 
           {/* SAVINGS MODULE (14, 15) */}
           <Route path="/savings" element={<Navigate to="/savings/dashboard" replace />} />
-          {/* <Route path="/savings/dashboard" element={<SavingsDashboardPage />} /> */}
-          {/* <Route path="/savings/goal/:id" element={<SingleSavingsGoalPage />} /> */}
+          <Route path="/savings/dashboard" element={<SavingsDashboardPage />} />
+          <Route path="/savings/goal/:id" element={<SingleSavingsGoalPage />} />
 
           {/* MONTH END MODULE (16) */}
           <Route path="/month-end" element={<Navigate to="/month-end/wizard" replace />} />
-          {/* <Route path="/month-end/wizard" element={<MonthlyCloseoutWizardPage />} /> */}
+          <Route path="/month-end/wizard" element={<MonthlyCloseoutWizardPage />} />
 
         </Route>
         

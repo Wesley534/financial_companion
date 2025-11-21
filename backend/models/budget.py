@@ -10,7 +10,7 @@ from database import Base
 # Avoid circular imports during runtime for type hints
 if TYPE_CHECKING:
     from .user import User
-    from .transaction import Transaction 
+    from .transaction import Transaction # <-- Ensure this import is available
 
 
 # --- Category Model ---
@@ -32,7 +32,8 @@ class Category(Base):
     
     # Relationships
     user: Mapped["User"] = relationship(back_populates="categories")
-    # transactions: Mapped[List["Transaction"]] = relationship(back_populates="category")
+    # New: Add relationship to transactions for this category
+    transactions: Mapped[List["Transaction"]] = relationship(back_populates="category") # <-- ADDED REAL RELATIONSHIP
 
 
 # --- Budget Model ---

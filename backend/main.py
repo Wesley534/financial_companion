@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware 
 
 # Absolute Imports
-from routers import auth
+from routers import auth, transaction, shopping, goal, monthend, ai
 from routers import budget # <-- ADDED IMPORT
 from database import engine 
 
@@ -39,6 +39,11 @@ app.add_middleware(
 # --- Include Routers ---
 app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(budget.router, prefix="/budget", tags=["Budget"]) # <-- ADDED ROUTER
+app.include_router(transaction.router, prefix="/transactions", tags=["Transactions"])
+app.include_router(shopping.router, prefix="/shopping", tags=["Shopping"])
+app.include_router(goal.router, prefix="/goals", tags=["Goals"])
+app.include_router(monthend.router, prefix="/monthend", tags=["Month End"])
+app.include_router(ai.router, prefix="/ai", tags=["AI Insights"])
 
 # Temporary Root Endpoint
 @app.get("/")
