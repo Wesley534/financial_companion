@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 export const CategoryCreateSchema = z.object({
   name: z.string().min(1, "Category name is required"),
-  type: z.enum(["Need", "Want", "Savings"], { required_error: "Type is required" }),
+  type: z.enum(["Need", "Want", "Savings"] as const, { error: "Type is required" }),
   planned: z.number().min(0, "Planned amount must be non-negative"),
   icon: z.string().optional().default("dollar-sign"),
   color: z.string().optional().default("#333333"),

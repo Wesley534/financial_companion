@@ -1,19 +1,19 @@
 // frontend/src/pages/shopping/CheckoutPage.tsx
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { 
     Loader2, 
-    ShoppingCart, 
     DollarSign, 
     ArrowLeft,
-    CheckCircle
+    CheckCircle,
+    AlertTriangle
 } from 'lucide-react';
 
 // Component Imports
@@ -60,7 +60,7 @@ const CheckoutPage: React.FC = () => {
     
     // Form Setup
     const form = useForm<z.infer<typeof CheckoutSchema>>({
-        resolver: zodResolver(CheckoutSchema),
+        resolver: zodResolver(CheckoutSchema) as Resolver<z.infer<typeof CheckoutSchema>>,
         defaultValues: {
             actual_total_cost: listData?.total_cost || 0,
             transaction_description: listData?.name || "Shopping List Checkout",

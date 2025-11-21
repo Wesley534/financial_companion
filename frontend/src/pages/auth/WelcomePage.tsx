@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRightIcon, BarChart3, TrendingUp, Wallet, CheckCircle, Shield, MoveRight, DollarSignIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, Wallet, CheckCircle, Shield, MoveRight, DollarSignIcon } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 
@@ -127,13 +127,14 @@ const WelcomePage: React.FC = () => {
                             {/* CTA Buttons */}
                             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
                                 <Link to="/register">
-                                    <Button 
+                                    <motion.button
+                                        type="button"
                                         className="w-full sm:w-auto text-lg font-bold h-14 px-8 rounded-2xl shadow-lg transition duration-300"
                                         style={{ backgroundColor: 'hsl(220, 80%, 50%)' }} // Primary Blue
                                         whileHover={{ scale: 1.05 }}
                                     >
                                         Get Started
-                                    </Button>
+                                    </motion.button>
                                 </Link>
                                 <Button 
                                     variant="outline" 

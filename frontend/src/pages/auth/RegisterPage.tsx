@@ -9,10 +9,8 @@ import { useRegisterMutation } from '@/api/auth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { motion } from 'framer-motion';
+import { motion, cubicBezier } from 'framer-motion';
 import { Heart, CheckCircle } from 'lucide-react'; 
-// import { UserIn } from '@/types'; // Placeholder for the User input type used in the mutation
-
 
 // --- Color and Style Constants (matching the WelcomePage) ---
 const PRIMARY_BLUE = 'hsl(220, 80%, 50%)'; // Primary CTA Color
@@ -26,21 +24,27 @@ const RegisterSchema = z.object({
 });
 type RegisterFormValues = z.infer<typeof RegisterSchema>;
 
-// Framer Motion Variants for the split layout
+// Framer Motion Variants for the split layout using cubicBezier easing
 const slideInLeft = {
     hidden: { opacity: 0, x: -50 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+    visible: { 
+        opacity: 1, 
+        x: 0, 
+        transition: { duration: 0.8, ease: cubicBezier(0.4, 0, 0.2, 1) } 
+    },
 };
 
 const slideInRight = {
     hidden: { opacity: 0, x: 50 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+    visible: { 
+        opacity: 1, 
+        x: 0, 
+        transition: { duration: 0.8, ease: cubicBezier(0.4, 0, 0.2, 1) } 
+    },
 };
-
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  // Ensure the hook signature matches your actual implementation
   const registerMutation = useRegisterMutation(); 
 
   const form = useForm<RegisterFormValues>({
@@ -54,20 +58,14 @@ const RegisterPage = () => {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-        // NOTE: Replace `UserIn` with the correct type if different
-        await registerMutation.mutateAsync(values as UserIn); 
-        
-        // On successful registration, prompt for login or auto-login
+        await registerMutation.mutateAsync(values); 
         alert("Success! You're now registered. Let's get you logged in.");
         navigate('/login'); 
-
     } catch (error: any) {
-        // Handle API errors (e.g., Email already registered)
         const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
         if (errorMessage.includes("Email already registered")) {
             form.setError('email', { type: 'manual', message: errorMessage });
         } else {
-            // General error
             form.setError('name', { type: 'manual', message: errorMessage });
         }
     }
@@ -82,17 +80,15 @@ const RegisterPage = () => {
             backgroundPosition: 'center',
         }}
     >
-        {/* Semi-transparent Overlay for Readability */}
         <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"></div>
 
         <div className="w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-2xl z-10">
             
-            {/* Left Column: Image/Welcome Panel (Styled to fit the image) */}
+            {/* Left Column: Image/Welcome Panel */}
             <motion.div
                 className="hidden lg:flex flex-col items-center justify-center p-12 text-white relative"
                 style={{ 
-                    // This div is now part of the form container and has a distinct look
-                    backgroundColor: PRIMARY_BLUE, // Use the primary color for a clean split
+                    backgroundColor: PRIMARY_BLUE,
                     background: `linear-gradient(135deg, ${PRIMARY_BLUE} 0%, hsl(240, 70%, 55%) 100%)`
                 }}
                 initial="hidden"
@@ -115,7 +111,7 @@ const RegisterPage = () => {
                 </div>
             </motion.div>
 
-            {/* Right Column: Registration Form (White Card) */}
+            {/* Right Column: Registration Form */}
             <motion.div
                 className="bg-white p-8 sm:p-12"
                 initial="hidden"
@@ -124,11 +120,7 @@ const RegisterPage = () => {
             >
                 <Card className="w-full border-none shadow-none">
                     <CardHeader className="p-0 text-center lg:text-left">
-                        {/* Logo/Brand Title */}
-                        <h1 
-                            className="text-3xl font-black mb-1" 
-                            style={{ color: BRAND_GREEN }}
-                        >
+                        <h1 className="text-3xl font-black mb-1" style={{ color: BRAND_GREEN }}>
                             SMARTBUDGET
                         </h1>
                         <CardTitle className="text-4xl font-extrabold text-gray-900">
@@ -202,12 +194,12 @@ const RegisterPage = () => {
                                     )}
                                 />
 
-                                {/* Submit Button (Primary Blue Style) */}
+                                {/* Submit Button */}
                                 <Button 
                                     type="submit" 
                                     className="w-full h-12 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
                                     style={{ backgroundColor: PRIMARY_BLUE }}
-                                    disabled={registerMutation.isPending}
+                                    disabled={registerMutation.isPending} 
                                 >
                                     {registerMutation.isPending ? 'Signing You Up...' : 'Create Account'}
                                 </Button>

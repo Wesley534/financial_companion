@@ -10,8 +10,6 @@ import {
     PlusCircle, 
     Filter, 
     Edit, 
-    Trash2, 
-    ArrowDown, 
     Calendar,
     Tag
 } from 'lucide-react';
@@ -90,7 +88,7 @@ const TransactionsListPage: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState<number>(0); 
     
     // Fetch Filter Options (Categories)
-    const { data: categories, isLoading: isCategoriesLoading } = useQuery<CategoryOut[]>({
+    const { data: categories } = useQuery<CategoryOut[]>({
         queryKey: ['categoriesList'],
         queryFn: fetchCategories,
         staleTime: Infinity,

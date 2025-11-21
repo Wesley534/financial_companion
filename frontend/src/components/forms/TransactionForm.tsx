@@ -1,7 +1,7 @@
 // frontend/src/components/forms/TransactionForm.tsx
 
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,7 +39,7 @@ interface TransactionData {
     date: string; // YYYY-MM-DD
     description: string;
     category_id: number;
-    notes: string;
+    notes?: string;
     recurring?: boolean;
 }
 
@@ -96,7 +96,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
 
     // 2. Form Setup
     const form = useForm<z.infer<typeof TransactionSchema>>({
-        resolver: zodResolver(TransactionSchema),
+        resolver: zodResolver(TransactionSchema) as Resolver<z.infer<typeof TransactionSchema>, any>,
         defaultValues: {
             amount: initialData?.amount || 0,
             date: initialData?.date || new Date().toISOString().substring(0, 10),

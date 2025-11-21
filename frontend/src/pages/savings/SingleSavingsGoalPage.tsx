@@ -1,6 +1,6 @@
 // frontend/src/pages/savings/SingleSavingsGoalPage.tsx
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,22 +8,21 @@ import apiClient from '@/api/client';
 import { 
     Loader2, 
     ArrowLeft, 
-    Target, 
     PiggyBank, 
     DollarSign, 
-    CheckCircle,
     Calendar,
     Zap
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 // Component Imports
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 // --- Theme Colors ---
 const PRIMARY_BLUE = 'hsl(220, 80%, 50%)';
@@ -81,7 +80,7 @@ const SingleSavingsGoalPage: React.FC = () => {
     
     // Form Setup for manual contribution
     const form = useForm<z.infer<typeof ContributionSchema>>({
-        resolver: zodResolver(ContributionSchema),
+        resolver: zodResolver(ContributionSchema) as Resolver<z.infer<typeof ContributionSchema>>,
         defaultValues: { amount: 0 },
     });
 
@@ -159,7 +158,7 @@ const SingleSavingsGoalPage: React.FC = () => {
                             </span>
                             <span className="text-gray-600">Target: ${goal.target_amount.toFixed(2)}</span>
                         </div>
-                        <Progress value={goal.progress_percent} className="h-4" indicatorColor={progressColor} />
+                        <Progress value={goal.progress_percent} className="h-4" />
                     </div>
                     
                     {/* Key Metrics */}

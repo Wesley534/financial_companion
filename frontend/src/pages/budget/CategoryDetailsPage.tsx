@@ -166,7 +166,10 @@ const CategoryDetailsPage: React.FC = () => {
                     {/* Progress Bar */}
                     <div className="space-y-2">
                         <p className="text-sm font-medium">Spending Progress</p>
-                        <Progress value={Math.min(100, progressPercent)} className="h-2" indicatorColor={progressColor} />
+                        <Progress
+                            value={Math.min(100, progressPercent)}
+                            className={`h-2 ${progressColor}`}
+                        />
                         {progressPercent > 100 && (
                             <p className="text-sm text-red-600 font-semibold">
                                 ⚠️ {category.name} is {Math.abs(remaining).toFixed(2)} over budget!

@@ -310,7 +310,7 @@ const DashboardPage = () => {
                                 <span>{monthProgress}% Complete</span>
                                 <span>{new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString()}</span>
                             </div>
-                            <Progress value={monthProgress} className="h-3" indicatorColor={`bg-[${PRIMARY_BLUE}]`} />
+                            <Progress value={monthProgress} className="h-3" />
                             <p className="text-sm text-center text-gray-500 mt-2">Day {new Date().getDate()} of {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} completed.</p>
                         </CardContent>
                     </Card>
