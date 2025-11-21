@@ -1,4 +1,4 @@
-# backend/config.py (Updated for Postgres)
+# backend/config.py (FIXED)
 
 from pydantic_settings import BaseSettings
 from pydantic import Field
@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., env='SECRET_KEY')
     ALGORITHM: str = Field(..., env='ALGORITHM')
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(..., env='ACCESS_TOKEN_EXPIRE_MINUTES')
+
+    # Frontend/Vite Configuration - <--- ADDED THIS FIELD
+    VITE_API_URL: str = Field(..., env='VITE_API_URL') 
 
     # AI (Remain the same)
     HUGGING_FACE_API_KEY: str = Field(..., env='HUGGING_FACE_API_KEY')

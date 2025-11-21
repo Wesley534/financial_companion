@@ -1,3 +1,5 @@
+# /home/wes/Desktop/projects/financial_companion/backend/security.py
+
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from jose import JWTError, jwt
@@ -14,16 +16,25 @@ from config import settings
 from models.user import User
 from database import get_db
 
-# --- Password Hashing with bcrypt and 72-byte truncation ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# --- Password Hashing with Argon2 ---
+# Change the scheme from "bcrypt" to "argon2"
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
+# Argon2 does not have the 72-byte limit, so we simplify the functions
 def get_password_hash(password: str) -> str:
-    # Truncate password to 72 characters (bcrypt limit)
-    truncated = password[:72]
-    return pwd_context.hash(truncated)
+    """Hashes the plain password using Argon2."""
+    return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password[:72], hashed_password)
+    """Verifies the plain password against the stored hash."""
+    # NOTE: Argon2 is typically robust enough that it handles long passwords
+    # without needing manual truncation.
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        # Handle case where hash might be malformed or incompatible (optional)
+        return False
+
 
 # --- JWT Token Generation & Verification ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
