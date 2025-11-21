@@ -25,6 +25,8 @@ app = FastAPI(title="SmartBudget API", lifespan=lifespan)
 origins = [
     "http://localhost:5173", # Frontend Development URL
     "http://127.0.0.1:5173", 
+    "https://financialcompanion.netlify.app",  # <-- Add this
+
 ]
 
 app.add_middleware(
