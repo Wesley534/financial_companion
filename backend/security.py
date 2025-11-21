@@ -1,27 +1,29 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated # <-- Corrected: Imported Annotated
+from typing import Annotated
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-# SQLALchemy Imports for Dependency
+# SQLAlchemy Imports for Dependency
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-# Absolute Imports (Corrected from relative imports)
+# Absolute Imports
 from config import settings
 from models.user import User
 from database import get_db
 
-# --- Password Hashing ---
+# --- Password Hashing with bcrypt and 72-byte truncation ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    # Truncate password to 72 characters (bcrypt limit)
+    truncated = password[:72]
+    return pwd_context.hash(truncated)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password[:72], hashed_password)
 
 # --- JWT Token Generation & Verification ---
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
