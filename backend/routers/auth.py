@@ -38,6 +38,12 @@ class UserOut(BaseModel):
     id: int
     name: str
     email: str
+    is_setup_complete: bool  # <--- ADD THIS FIELD
+    currency: str | None = None  # Optional, if you want to include
+
+    class Config:
+        from_attributes = True
+
 
     class Config:
         from_attributes = True
