@@ -68,11 +68,9 @@ These steps assume you have Python 3.10+ and Node.js (16+) installed.
 - Backend: containerize or run with a production ASGI server (e.g., uvicorn/gunicorn + uvicorn workers) and ensure environment variables and database are configured.
 
 ## Deployments / Live URL
-Replace the placeholder below with the actual URL once deployed.
 
 Live instance: https://financialcompanion.netlify.app/
 
-If you want me to insert the real link, paste the URL here and I'll update the README.
 
 ## Project layout (high-level)
 - `/backend` — FastAPI app, models, routers, Alembic migrations, and start script.
@@ -82,9 +80,5 @@ If you want me to insert the real link, paste the URL here and I'll update the R
 - If migrations fail, confirm `DATABASE_URL` is set and reachable.
 - Use the `backend/start.sh` script for a simple dev start; it may include env loading or other convenience wrappers.
 
-## Contributing
-- Open issues or PRs against the `dev` branch. Add tests for backend logic where possible.
 
-## License & contact
-Add your license here (e.g., MIT) and contact info or repo owner link.
 
