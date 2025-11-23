@@ -1,5 +1,3 @@
-# backend/routers/budget.py (Complete Module with Transaction Integration)
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
@@ -282,8 +280,8 @@ async def update_budget_details(
 
 # --- Category Endpoints ---
 
-# POST /category
-@router.post("/category", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
+# FIX: Changed path from "/category" to "/categories" to match client POST request.
+@router.post("/categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
 async def create_category(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -320,8 +318,8 @@ async def create_category(
     return CategoryOut.model_validate(new_category)
 
 
-# PATCH /category/update/{id}
-@router.patch("/category/update/{category_id}", response_model=CategoryOut)
+# FIX: Changed path from "/category/update/{category_id}" to "/categories/{category_id}" for consistency.
+@router.patch("/categories/{category_id}", response_model=CategoryOut)
 async def update_category(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -369,8 +367,8 @@ async def update_category(
     return CategoryOut.model_validate(category)
 
 
-# DELETE /category/{id}
-@router.delete("/category/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+# FIX: Changed path from "/category/{category_id}" to "/categories/{category_id}" for consistency.
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],

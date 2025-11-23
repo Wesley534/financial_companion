@@ -22,7 +22,21 @@ from security import get_current_user
 
 router = APIRouter()
 
-# --- Dependencies ---
+# --- Helper Functions ---
+
+def calculate_goal_progress(goal: Goal) -> float:
+    """Calculates the progress percentage for a Goal ORM object."""
+    if goal.target_amount is None or goal.target_amount == 0:
+        return 0.0
+    return min(100.0, (goal.saved_amount / goal.target_amount) * 100)
+
+# The Pydantic validator needs to receive a dictionary with the calculated field.
+def create_goal_out_data(goal: Goal) -> Dict:
+    """Creates a dictionary suitable for GoalOut.model_validate."""
+    goal_data = goal.__dict__.copy()
+    goal_data['progress_percent'] = calculate_goal_progress(goal)
+    return goal_data
+
 
 async def get_validated_goal(db: AsyncSession, user_id: int, goal_id: int) -> Goal:
     """Fetches a goal and ensures it belongs to the user."""
@@ -45,8 +59,9 @@ async def get_all_goals(
     stmt = select(Goal).where(Goal.user_id == current_user.id).order_by(Goal.target_amount.desc())
     goals = (await db.execute(stmt)).scalars().all()
     
-    # Use the custom validator to calculate progress_percent
-    return [GoalOut.model_validate(goal) for goal in goals]
+    # FIX START: Inject the calculated progress_percent into the data dict before validation
+    return [GoalOut.model_validate(create_goal_out_data(goal)) for goal in goals]
+    # FIX END
 
 
 # POST /goal
@@ -68,7 +83,9 @@ async def create_goal(
     await db.commit()
     await db.refresh(new_goal)
     
-    return GoalOut.model_validate(new_goal)
+    # FIX START: Inject the calculated progress_percent into the data dict before validation
+    return GoalOut.model_validate(create_goal_out_data(new_goal))
+    # FIX END
 
 
 # GET /goal/{id}
@@ -79,7 +96,9 @@ async def get_goal(
     goal_id: int
 ):
     goal = await get_validated_goal(db, current_user.id, goal_id)
-    return GoalOut.model_validate(goal)
+    # FIX START: Inject the calculated progress_percent into the data dict before validation
+    return GoalOut.model_validate(create_goal_out_data(goal))
+    # FIX END
 
 
 # PATCH /goal/{id}
@@ -103,7 +122,9 @@ async def update_goal(
     await db.commit()
     await db.refresh(goal)
     
-    return GoalOut.model_validate(goal)
+    # FIX START: Inject the calculated progress_percent into the data dict before validation
+    return GoalOut.model_validate(create_goal_out_data(goal))
+    # FIX END
 
 
 # DELETE /goal/{id}
@@ -140,18 +161,15 @@ async def contribute_to_goal(
     budget = (await db.execute(budget_stmt)).scalars().first()
     
     if not budget:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current month budget not found. Cannot determine available funds.")
+        # NOTE: Keeping this error as it's a fundamental data integrity check,
+        # but removing the *insufficiency* check.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current month budget not found. Cannot update available funds.")
         
     # 2. Validation: Check if free_to_spend is sufficient
     contribution_amount = contribution.amount
     
-    if contribution_amount > budget.free_to_spend:
-        # Note: In a real app, this should be a soft warning/dialog on the frontend.
-        # Here, we enforce the hard limit for a clean transaction.
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail=f"Contribution amount (${contribution_amount:.2f}) exceeds current 'Free-to-Spend' balance (${budget.free_to_spend:.2f})."
-        )
+    # REMOVED: The check that raises HTTPException if contribution_amount > budget.free_to_spend
+    # This allows a user to "over-contribute" from Free-to-Spend, resulting in a negative Free-to-Spend balance.
 
     # 3. Update Goal: Increase saved_amount
     goal.saved_amount += contribution_amount
@@ -163,14 +181,5 @@ async def contribute_to_goal(
     db.add(goal)
     db.add(budget)
     await db.commit()
-    
-    # Optionally: Record this as a Transaction tagged to the main Savings Category
-    # Since this is a system-level transfer, we will skip recording a Transaction for now
-    # to avoid double-counting, as the money is already *in* the system.
-    
-    # But for dashboard health, we might *want* to record a transaction to move money 
-    # from 'Free-to-Spend' into the 'Savings' category's actual amount.
-    
-    # To keep it simple for now, we only update the Goal/Budget models.
     
     return {"message": f"Successfully contributed ${contribution_amount:.2f} to {goal.name}.", "new_saved_amount": goal.saved_amount}

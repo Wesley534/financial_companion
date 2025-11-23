@@ -1,6 +1,4 @@
-# backend/schemas/transaction.py
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict
 from datetime import datetime, date as date_type
 
@@ -11,8 +9,10 @@ class TransactionCategoryOut(BaseModel):
     color: str
     icon: str
 
-    class Config:
-        from_attributes = True
+    # Using model_config for Pydantic V2 style (though Config also works)
+    model_config = ConfigDict(from_attributes=True)
+    # class Config: # Legacy Pydantic V1 style
+    #     from_attributes = True
 
 
 # --- Transaction Base Schemas ---
@@ -49,8 +49,7 @@ class TransactionOut(TransactionBase):
     # Optional nested object for the category details (for display)
     category: Optional[TransactionCategoryOut] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Filtering/Query Schemas ---
 class TransactionFilter(BaseModel):

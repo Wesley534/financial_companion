@@ -3,9 +3,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-// import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // <-- ADDED CardDescription
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // Added mutation/client
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/api/client';
 import { 
     Loader2, 
@@ -14,7 +13,8 @@ import {
     ArrowRight, 
     DollarSign,
     TrendingUp,
-    Target
+    Target,
+    Trash2 // Added Trash2 icon
 } from 'lucide-react';
 import { useForm, type Resolver } from 'react-hook-form';
 import * as z from 'zod';
@@ -49,7 +49,6 @@ const NewGoalSchema = z.object({
     name: z.string().min(3, "Goal name is required."),
     target_amount: z.coerce.number().positive("Target amount must be positive."),
     monthly_contribution: z.coerce.number().min(0, "Contribution must be zero or positive."),
-    // target_date: z.string().optional(), // Omitting date for simplicity in form
 });
 
 // --- API Fetching Function ---
@@ -60,8 +59,8 @@ const fetchAllGoals = async (): Promise<GoalOut[]> => {
     return response.data;
 };
 
-// --- Sub-Component: Goal Card (Remains the same) ---
-const GoalCard: React.FC<{ goal: GoalOut }> = ({ goal }) => {
+// --- Sub-Component: Goal Card (Modified for Delete) ---
+const GoalCard: React.FC<{ goal: GoalOut, onDelete: (goalId: number) => void }> = ({ goal, onDelete }) => {
     const isComplete = goal.saved_amount >= goal.target_amount;
     const progressColor = isComplete ? BRAND_GREEN : PRIMARY_BLUE;
 
@@ -99,17 +98,27 @@ const GoalCard: React.FC<{ goal: GoalOut }> = ({ goal }) => {
                     </div>
                 </div>
 
-                <Link to={`/savings/goal/${goal.id}`} className='block pt-2'>
-                    <Button variant="outline" className="w-full h-8 rounded-lg text-sm border-gray-200">
-                        View Details <ArrowRight className="w-4 h-4 ml-2" />
+                <div className="flex justify-between pt-2">
+                    <Link to={`/savings/goal/${goal.id}`} className='flex-grow mr-2'>
+                        <Button variant="outline" className="w-full h-8 rounded-lg text-sm border-gray-200">
+                            View Details <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                    </Link>
+                    <Button 
+                        variant="destructive" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-lg"
+                        onClick={() => onDelete(goal.id)}
+                    >
+                        <Trash2 className="w-4 h-4" />
                     </Button>
-                </Link>
+                </div>
             </CardContent>
         </Card>
     );
 };
 
-// --- Sub-Component: New Goal Form ---
+// --- Sub-Component: New Goal Form (Remains the same) ---
 const NewGoalForm: React.FC<{ setIsOpen: (open: boolean) => void }> = ({ setIsOpen }) => {
     const queryClient = useQueryClient();
     const form = useForm<z.infer<typeof NewGoalSchema>>({
@@ -190,17 +199,78 @@ const NewGoalForm: React.FC<{ setIsOpen: (open: boolean) => void }> = ({ setIsOp
     );
 };
 
+// --- Sub-Component: Contribution History Graph Placeholder (NEW) ---
+const ContributionHistoryChart: React.FC = () => {
+    // Mock data for a simple bar chart concept
+    const mockContributions = [
+        { month: 'Aug 25', contributed: 150, target: 200 },
+        { month: 'Sep 25', contributed: 250, target: 200 },
+        { month: 'Oct 25', contributed: 180, target: 200 },
+        { month: 'Nov 25', contributed: 200, target: 200 },
+    ];
+    
+    // Simple visual placeholder mimicking a bar chart
+    return (
+        <div className="flex h-64 p-4">
+            {mockContributions.map((data, index) => (
+                <div key={index} className="flex flex-col items-center mx-2 h-full justify-end">
+                    {/* Bar for Contributed */}
+                    <div 
+                        className="w-8 rounded-t-sm" 
+                        style={{ 
+                            height: `${(data.contributed / data.target) * 100 * 0.5}px`, // Scaling factor for visual size
+                            backgroundColor: data.contributed >= data.target ? BRAND_GREEN : PRIMARY_BLUE 
+                        }} 
+                    ></div>
+                    {/* Target Line */}
+                    <div className="w-8 h-px bg-red-400 -mt-px relative" title={`Target: $${data.target.toFixed(2)}`}></div>
+                    <span className="text-xs text-gray-500 mt-2">{data.month}</span>
+                </div>
+            ))}
+            <p className="text-xs text-gray-400 absolute bottom-4 right-4">Visualization only - integration pending.</p>
+        </div>
+    );
+};
+
 
 // --- Main Component ---
 
 const SavingsDashboardPage: React.FC = () => {
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const queryClient = useQueryClient(); // Get query client for mutations
     
     // Fetch all goals
     const { data: goals, isLoading, error } = useQuery<GoalOut[]>({
         queryKey: ['allGoals'],
         queryFn: fetchAllGoals,
     });
+    
+    // DELETE Goal Mutation
+    const deleteGoalMutation = useMutation({
+        mutationFn: async (goalId: number) => {
+            if (!window.confirm(`Are you sure you want to delete this goal (ID: ${goalId})? This action cannot be undone.`)) {
+                throw new Error("Deletion cancelled by user.");
+            }
+            // DELETE /goals/{id}
+            return apiClient.delete(`/goals/${goalId}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['allGoals'] });
+            // Show success toast
+        },
+        onError: (err: any) => {
+             // Filter out cancellation error for a cleaner alert
+            if (err.message !== "Deletion cancelled by user.") {
+                 alert(`Deletion failed: ${err.response?.data?.detail || err.message}`);
+            }
+        }
+    });
+
+    // Handler passed to GoalCard
+    const handleDeleteGoal = (goalId: number) => {
+        deleteGoalMutation.mutate(goalId);
+    };
+
 
     const totalSaved = goals?.reduce((sum, goal) => sum + goal.saved_amount, 0) || 0;
 
@@ -230,6 +300,7 @@ const SavingsDashboardPage: React.FC = () => {
                     className="rounded-xl" 
                     style={{ backgroundColor: BRAND_GREEN }}
                     onClick={() => setIsFormOpen(!isFormOpen)}
+                    disabled={deleteGoalMutation.isPending}
                 >
                     <PlusCircle className="w-4 h-4 mr-2" /> Create New Goal
                 </Button>
@@ -245,6 +316,14 @@ const SavingsDashboardPage: React.FC = () => {
             >
                 <NewGoalForm setIsOpen={setIsFormOpen} />
             </motion.div>
+            
+            {/* Loading Overlay during deletion */}
+            {deleteGoalMutation.isPending && (
+                <div className="fixed inset-0 bg-black/10 z-50 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
+            )}
+
 
             {/* Total Saved Card */}
             <Card className="rounded-2xl shadow-lg border border-gray-100 border-l-4" style={{ borderColor: BRAND_GREEN }}>
@@ -267,21 +346,21 @@ const SavingsDashboardPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 pt-4">Your Active Goals</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {goals && goals.length > 0 ? (
-                    goals.map(goal => <GoalCard key={goal.id} goal={goal} />)
+                    goals.map(goal => <GoalCard key={goal.id} goal={goal} onDelete={handleDeleteGoal} />)
                 ) : (
                     <p className="text-gray-500 italic col-span-3">No savings goals defined yet.</p>
                 )}
             </div>
 
-            {/* Contribution History Chart Placeholder */}
+            {/* Contribution History Chart Placeholder (NEW) */}
             <Card className="rounded-2xl shadow-lg border border-gray-100">
                 <CardHeader>
                     <CardTitle className="text-lg flex items-center">
                         <TrendingUp className="w-5 h-5 mr-2 text-blue-500" /> Contribution History
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="h-64 flex items-center justify-center text-gray-500">
-                    [Chart Placeholder: Monthly Contribution vs. Goal Target]
+                <CardContent className="h-64 flex items-center justify-center text-gray-500 relative">
+                    <ContributionHistoryChart />
                 </CardContent>
             </Card>
         </motion.div>
