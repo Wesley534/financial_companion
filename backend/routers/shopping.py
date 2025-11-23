@@ -110,8 +110,26 @@ async def update_shopping_list(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New category ID is invalid.")
             
     if 'items' in update_data:
-        # Convert List[ShoppingListItem] back to JSON string
-        update_data['items_json'] = json.dumps([item.model_dump() for item in update_data.pop('items')])
+        # FIX: Access the list of Pydantic models directly from the list_update object
+        # before the outer model_dump converts 'items' into a list of dicts.
+        # This assumes the item list is stored in the list_update object under 'items' 
+        # and contains the original Pydantic models.
+        items_to_dump = list_update.items 
+        
+        # If the outer model_dump was used, the items list in update_data is already a list of dicts.
+        # We need to detect this and handle both cases or change the dump logic.
+        
+        # Safer Fix: Check if the original list_update Pydantic model contains the items field 
+        # and it's set (i.e., passed in the request body), then use that.
+        if 'items' in list_update.model_fields_set:
+            items_to_dump = list_update.items
+            
+            # Convert List[ShoppingListItem] back to JSON string
+            # list_update.items contains the Pydantic models from validation.
+            # We call model_dump() on them here.
+            update_data['items_json'] = json.dumps([item.model_dump() for item in items_to_dump])
+            del update_data['items'] # Remove the original 'items' key from update_data
+
         
     for key, value in update_data.items():
         setattr(shopping_list, key, value)

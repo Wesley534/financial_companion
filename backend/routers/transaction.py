@@ -1,5 +1,3 @@
-# backend/routers/transaction.py
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
@@ -7,6 +5,7 @@ from sqlalchemy.sql.expression import and_, extract
 from typing import Annotated, List, Optional
 from datetime import datetime
 import json
+from sqlalchemy.sql import func # Needed for aggregate function SUM
 
 # Absolute Imports
 from database import get_db
@@ -17,9 +16,10 @@ from schemas.transaction import (
     TransactionCreate, 
     TransactionUpdate, 
     TransactionOut,
-    TransactionFilter
+    TransactionFilter,
+    TransactionCategoryOut 
 )
-from schemas.budget import CategoryOut
+from schemas.budget import CategoryOut 
 from security import get_current_user 
 
 router = APIRouter()
@@ -57,26 +57,22 @@ async def update_category_actual(db: AsyncSession, category_id: int):
     
     if budget:
         # Recalculate all totals for the budget month
-        # This involves getting ALL categories for the month and summing their actuals
         
-        # A more efficient approach would be to calculate the sum directly from transactions for all categories
-        
-        # For now, let's use the explicit update logic:
         all_categories_result = await db.execute(select(Category).where(
             Category.user_id == user_id, 
             Category.budget_month == budget_month
         ))
         all_categories = all_categories_result.scalars().all()
         
-        # NOTE: This is slightly inefficient as we query transactions per category.
-        # A proper BudgetService class would handle this with a single query.
-        
-        # Recalculate actual for ALL categories (simpler placeholder)
-        total_actual = sum(
-            (await db.execute(select(func.sum(Transaction.amount)).where(
+        # FIX: Using an explicit loop to resolve TypeError: 'async_generator' object is not iterable
+        category_actuals = []
+        for c in all_categories:
+            amount_result = await db.execute(select(func.sum(Transaction.amount)).where(
                 Transaction.category_id == c.id
-            ))).scalar() or 0.0 for c in all_categories
-        )
+            ))
+            category_actuals.append(amount_result.scalar() or 0.0)
+            
+        total_actual = sum(category_actuals)
         
         total_planned = sum(c.planned for c in all_categories)
         
@@ -90,10 +86,6 @@ async def update_category_actual(db: AsyncSession, category_id: int):
         db.add(budget)
         
     await db.commit()
-
-
-# --- Dependencies ---
-from sqlalchemy.sql import func # Needed for aggregate function SUM
 
 
 # --- Endpoints ---
@@ -143,6 +135,7 @@ async def create_transaction(
     # Refetch to include the category name/color for the response (due to missing relationship setup)
     new_transaction.category = category 
     
+    # The transaction_in.date is already a date object, so model_validate works here.
     return TransactionOut.model_validate(new_transaction)
 
 
@@ -190,11 +183,22 @@ async def get_transactions(
     
     # 4. Map results to TransactionOut schema
     transaction_outs = []
+    
     for transaction, category in transactions_with_categories:
-        category_out = TransactionCategoryOut.model_validate(category)
-        transaction_out_dict = transaction.__dict__
-        transaction_out_dict['category'] = category_out
-        transaction_outs.append(TransactionOut.model_validate(transaction_out_dict))
+        
+        category_out = TransactionCategoryOut.model_validate(category) 
+        
+        # Construct the final TransactionOut object
+        transaction_data = transaction.__dict__.copy()
+        
+        # FIX START: Convert SQLAlchemy model's date (which is a datetime object) to a date object 
+        # to satisfy the TransactionOut schema's date_type field.
+        if isinstance(transaction_data.get('date'), datetime):
+             transaction_data['date'] = transaction_data['date'].date()
+        # FIX END
+        
+        transaction_data['category'] = category_out
+        transaction_outs.append(TransactionOut.model_validate(transaction_data))
     
     return transaction_outs
 
@@ -220,7 +224,13 @@ async def get_transaction(
     
     # Map to output schema
     category_out = TransactionCategoryOut.model_validate(category)
-    transaction_out_dict = transaction.__dict__
+    transaction_out_dict = transaction.__dict__.copy()
+    
+    # FIX START: Convert SQLAlchemy model's date (which is a datetime object) to a date object 
+    if isinstance(transaction_out_dict.get('date'), datetime):
+         transaction_out_dict['date'] = transaction_out_dict['date'].date()
+    # FIX END
+    
     transaction_out_dict['category'] = category_out
     
     return TransactionOut.model_validate(transaction_out_dict)

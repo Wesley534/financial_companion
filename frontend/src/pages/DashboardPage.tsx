@@ -51,6 +51,16 @@ interface MonthlyBudgetOut {
     categories: CategoryOut[];
 }
 
+interface GoalOut {
+    id: number;
+    name: string;
+    target_amount: number;
+    saved_amount: number;
+    monthly_contribution: number;
+    target_date: string | null;
+    progress_percent: number; // Calculated on backend
+}
+
 interface InsightsResponse {
     insights: { type: string; text: string }[];
 }
@@ -83,6 +93,12 @@ const fetchCurrentBudget = async (): Promise<MonthlyBudgetOut> => {
     return response.data;
 };
 
+const fetchAllGoals = async (): Promise<GoalOut[]> => {
+    const response = await apiClient.get('/goals');
+    return response.data;
+};
+
+
 const fetchAIPrediction = async (monthProgress: number, currentVariance: number): Promise<PredictStatusResponse> => {
     const response = await apiClient.post('/ai/predict-budget-status', {
         month_progress_percent: monthProgress,
@@ -91,11 +107,34 @@ const fetchAIPrediction = async (monthProgress: number, currentVariance: number)
     return response.data;
 };
 
-const fetchAIInsights = async (spendingSummaryText: string): Promise<InsightsResponse> => {
-    const response = await apiClient.post('/ai/insights', {
+// NEW: Use a static default for strict mode, as it's a user setting not fetched here.
+const DEFAULT_STRICT_MODE = false;
+
+const fetchAIInsights = async (spendingSummaryText: string, goals: GoalOut[]): Promise<InsightsResponse> => {
+    
+    // Format GoalOut list to match the List[Dict[str, Any]] format expected by the backend schema
+    const formattedGoals = goals.map(g => ({
+        id: g.id,
+        name: g.name,
+        target_amount: g.target_amount,
+        saved_amount: g.saved_amount,
+        progress_percent: g.progress_percent,
+        monthly_contribution: g.monthly_contribution,
+    }));
+    
+    const payload = {
         spending_summary_text: spendingSummaryText,
-        // In a real app, you'd include goals, strict_mode, etc. here
-    });
+        goals: formattedGoals,           // <-- NOW USING REAL DATA
+        strict_mode: DEFAULT_STRICT_MODE,
+    };
+    
+    if (!spendingSummaryText || spendingSummaryText.length < 10) {
+        console.warn("Skipping AI Insights request: Spending summary is too short/empty.");
+        // Return a default, placeholder response object if we skip the fetch
+        return { insights: [{ type: 'tip', text: 'Start logging transactions to unlock AI Insights!' }] }; 
+    }
+
+    const response = await apiClient.post('/ai/insights', payload);
     return response.data;
 };
 
@@ -112,6 +151,7 @@ const CategoryVarianceCard: React.FC<CategoryVarianceProps> = ({ category }) => 
     const progress = (actual / planned) * 100;
     const barColor = isUnderBudget && progress <= 100 ? `bg-[${BRAND_GREEN}]` : 'bg-red-500';
     const varianceSign = isUnderBudget ? '+' : '-';
+    // NOTE: Using inline style for BRAND_GREEN/PRIMARY_BLUE to ensure Tailwind picks up the classes in the main component.
     const varianceStyle = isUnderBudget 
         ? { color: BRAND_GREEN, className: 'text-sm font-semibold flex items-center' } 
         : { color: 'rgb(239, 68, 68)', className: 'text-sm text-red-600 font-semibold flex items-center' };
@@ -140,7 +180,7 @@ const CategoryVarianceCard: React.FC<CategoryVarianceProps> = ({ category }) => 
                 </div>
 
                 <div className={varianceStyle.className} style={{ color: varianceStyle.color }}>
-                    {isUnderBudget ? <ArrowUpCircle className="w-4 h-4 mr-1" /> : <ArrowDownCircle className="w-4 h-4 mr-1" />}
+                    {isUnderBudget ? <ArrowUpCircle className="w-4 h-4 mr-1" style={{ color: BRAND_GREEN }} /> : <ArrowDownCircle className="w-4 h-4 mr-1" style={{ color: 'rgb(239, 68, 68)' }} />}
                     {varianceSign}${Math.abs(variance).toFixed(2)} {isUnderBudget ? 'Under Budget' : 'Over Budget'}
                 </div>
             </CardContent>
@@ -162,13 +202,13 @@ const InsightCard: React.FC<InsightProps> = ({ text, type }) => {
         style = "text-red-600 bg-red-50 border-red-200";
     } else if (type === 'projection') {
         Icon = TrendingUp;
-        style = `text-[${BRAND_GREEN}] bg-[hsl(140,70%,95%)] border-[hsl(140,70%,85%)]`;
+        style = `text-green-600 bg-green-50 border-green-200`; // Use Tailwind classes for consistency
     } else if (type === 'tip' || type === 'warning') {
         Icon = Zap;
-        style = `text-[${PRIMARY_BLUE}] bg-[hsl(220,80%,95%)] border-[hsl(220,80%,85%)]`;
+        style = `text-blue-600 bg-blue-50 border-blue-200`; // Use Tailwind classes for consistency
     }
 
-    // Adjust color for icon when background is light
+    // Determine the icon color using the style class for Tailwind consistency
     const iconColor = type === 'alert' ? 'rgb(239, 68, 68)' : type === 'projection' ? BRAND_GREEN : PRIMARY_BLUE;
 
     return (
@@ -193,6 +233,13 @@ const DashboardPage = () => {
         staleTime: 5 * 60 * 1000, // Stale for 5 minutes
     });
     
+    // 2. Fetch All Goals
+    const { data: goalsData, isLoading: isGoalsLoading, error: goalsError } = useQuery<GoalOut[]>({
+        queryKey: ['allGoals'],
+        queryFn: fetchAllGoals,
+        staleTime: 5 * 60 * 1000,
+    });
+    
     // Derived values for AI calls
     const totalPlanned = budgetData?.totals.planned || 0;
     const totalActual = budgetData?.totals.actual || 0;
@@ -202,7 +249,7 @@ const DashboardPage = () => {
     // Generate a simple spending summary for the Insights API
     const spendingSummary = `Total Planned: $${totalPlanned}, Total Actual: $${totalActual}, Month Progress: ${monthProgress}%. Categories: ${budgetData?.categories.map(c => `${c.name} (Planned: ${c.planned}, Actual: ${c.actual})`).join(', ')}`;
     
-    // 2. Fetch AI Prediction for Health Header
+    // 3. Fetch AI Prediction for Health Header
     const { data: predictionData, isLoading: isPredictionLoading } = useQuery<PredictStatusResponse>({
         queryKey: ['aiPrediction', monthProgress, currentVarianceRatio],
         queryFn: () => fetchAIPrediction(monthProgress, currentVarianceRatio),
@@ -210,29 +257,30 @@ const DashboardPage = () => {
         staleTime: 10 * 60 * 1000,
     });
 
-    // 3. Fetch AI Insights for Feed
+    // 4. Fetch AI Insights for Feed
     const { data: insightsData, isLoading: isInsightsLoading } = useQuery<InsightsResponse>({
-        queryKey: ['aiInsights', spendingSummary],
-        queryFn: () => fetchAIInsights(spendingSummary),
-        enabled: !!budgetData, // Only run once budget data is available
+        queryKey: ['aiInsights', spendingSummary, goalsData], // Include goalsData in key to re-fetch on goal change
+        queryFn: () => fetchAIInsights(spendingSummary, goalsData || []),
+        enabled: !!budgetData && !!goalsData, // Only run once ALL necessary data is available
         staleTime: 30 * 60 * 1000,
     });
 
-    if (isBudgetLoading) {
+    if (isBudgetLoading || isGoalsLoading) {
         return (
             <div className="flex h-64 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                <p className="ml-3 text-gray-600">Loading budget data...</p>
+                <p className="ml-3 text-gray-600">Loading initial data...</p>
             </div>
         );
     }
 
-    if (budgetError) {
+    if (budgetError || goalsError) {
+        const error = budgetError || goalsError;
         return (
             <div className="p-8 text-center text-red-600 border border-red-200 bg-red-50 rounded-lg">
                 <h2 className="text-xl font-bold mb-2">Error Loading Data</h2>
-                <p>Could not fetch budget data. Please check your API server connection.</p>
-                <p className="text-sm mt-2">Error: {budgetError.message}</p>
+                <p>Could not fetch necessary data. Please check your API server connection.</p>
+                <p className="text-sm mt-2">Error: {error ? error.message : 'Unknown error'}</p>
             </div>
         );
     }

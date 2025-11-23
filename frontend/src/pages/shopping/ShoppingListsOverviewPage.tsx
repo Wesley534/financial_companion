@@ -1,4 +1,4 @@
-// frontend/src/pages/shopping/ShoppingListsOverviewPage.tsx (UPDATED)
+// frontend/src/pages/shopping/ShoppingListsOverviewPage.tsx (UNCHANGED LOGIC)
 
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -16,8 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge'; 
-import NewListModal from './NewListModal'; // <--- NEW IMPORT
-
+// import NewListModal from '@/components/shopping/NewListModal'; // Corrected relative path for import
+import NewListModal from './NewListModal';
 // --- Type Definitions ---
 
 interface CategoryData {

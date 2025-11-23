@@ -32,7 +32,7 @@ interface ShoppingListItem {
     name: string;
     estimated_price: number;
     quantity: number;
-    total_price: number; // calculated field
+    total_price?: number; // MAKE OPTIONAL for incoming data, will be calculated
 }
 
 interface ShoppingListOut {
@@ -58,12 +58,22 @@ const NewItemSchema = z.object({
     quantity: z.coerce.number().int().min(1, "Qty must be at least 1."),
 });
 
+// --- Utility: Calculate Total Price for an Item ---
+const calculateItemTotalPrice = (item: ShoppingListItem): ShoppingListItem => ({
+    ...item,
+    total_price: item.estimated_price * item.quantity,
+});
+
 // --- API Fetching Functions ---
 
 const fetchSingleShoppingList = async (listId: number | string): Promise<{ list: ShoppingListOut, categories: CategoryData[] }> => {
     // 1. Fetch List
     const listResponse = await apiClient.get(`/shopping/${listId}`);
     const list: ShoppingListOut = listResponse.data;
+
+    // FIX: Ensure total_price is calculated for all incoming items from the API
+    const calculatedItems = list.items.map(calculateItemTotalPrice);
+    list.items = calculatedItems;
 
     // 2. Fetch Categories
     const categoryResponse = await apiClient.get<any>('/budget/current');
@@ -93,25 +103,30 @@ const SingleShoppingListPage: React.FC = () => {
     const itemForm = useForm<z.infer<typeof NewItemSchema>>({
         defaultValues: { name: '', estimated_price: 0, quantity: 1 },
         // zodResolver can produce a resolver type that doesn't exactly match the inferred useForm types
-        // when using coercion; cast to any to satisfy the expected Resolver signature.
         resolver: zodResolver(NewItemSchema) as any,
         mode: 'onBlur',
     });
 
     // 2. State for editing and new list creation
+    // Initialize currentListItems with calculated items if data is present
     const [currentListItems, setCurrentListItems] = useState<ShoppingListItem[]>(data?.list?.items || []);
     const [listName, setListName] = useState(data?.list?.name || '');
     const [selectedCategoryId, setSelectedCategoryId] = useState(data?.list?.category_id || (data?.categories[0]?.id || 0));
 
     useEffect(() => {
         if (data?.list) {
+            // Items should already have total_price calculated by fetchSingleShoppingList
             setCurrentListItems(data.list.items);
             setListName(data.list.name);
             setSelectedCategoryId(data.list.category_id);
         }
+        // Handle New List initialization: grab the first category ID if available
+        if (isNewList && !selectedCategoryId && data?.categories.length) {
+            setSelectedCategoryId(data.categories[0].id);
+        }
     }, [data]);
     
-    const listTotal = currentListItems.reduce((sum, item) => sum + item.total_price, 0);
+    const listTotal = currentListItems.reduce((sum, item) => sum + (item.total_price || 0), 0);
 
 
     // 3. Mutations
@@ -159,10 +174,7 @@ const SingleShoppingListPage: React.FC = () => {
 
     // Handlers
     const handleAddItem = (values: z.infer<typeof NewItemSchema>) => {
-        const newItem: ShoppingListItem = {
-            ...values,
-            total_price: values.estimated_price * values.quantity,
-        };
+        const newItem: ShoppingListItem = calculateItemTotalPrice(values);
         setCurrentListItems([...currentListItems, newItem]);
         itemForm.reset({ name: '', estimated_price: 0, quantity: 1 });
     };
@@ -176,7 +188,8 @@ const SingleShoppingListPage: React.FC = () => {
         saveListMutation.mutate({
             name: listName,
             category_id: selectedCategoryId,
-            items: currentListItems.map(({ total_price, ...rest }) => rest), // Send schema-compliant items
+            // Only send fields expected by the backend schema (estimated_price and quantity)
+            items: currentListItems.map(({ total_price, ...rest }) => rest), 
         });
     };
     
@@ -195,7 +208,10 @@ const SingleShoppingListPage: React.FC = () => {
         return <div className="p-4 text-red-600">Error loading list: {error.message}</div>;
     }
     
-    const currentCategory = data?.categories.find(c => c.id === selectedCategoryId);
+    // Safety check for currentCategory which can be undefined if data hasn't loaded 
+    // or if the category ID is invalid/missing.
+    const categories = data?.categories || [];
+    const currentCategory = categories.find(c => c.id === selectedCategoryId);
     const budgetRemaining = currentCategory ? currentCategory.planned - currentCategory.actual : 0;
     const projectedRemaining = budgetRemaining - listTotal;
     const isOverBudget = projectedRemaining < 0;
@@ -216,11 +232,11 @@ const SingleShoppingListPage: React.FC = () => {
                 </div>
                 <Button 
                     onClick={handleSaveList} 
-                    disabled={isNewList ? false : saveListMutation.isPending}
+                    disabled={saveListMutation.isPending || listName.length < 3 || currentListItems.length === 0 || !selectedCategoryId}
                     className="rounded-xl"
                 >
                     <ListChecks className="w-4 h-4 mr-2" /> 
-                    {isNewList ? 'Save List' : (saveListMutation.isPending ? 'Saving...' : 'Update List')}
+                    {saveListMutation.isPending ? 'Saving...' : (isNewList ? 'Save List' : 'Update List')}
                 </Button>
             </div>
             
@@ -229,13 +245,26 @@ const SingleShoppingListPage: React.FC = () => {
                 {/* Shopping List Card (Col 1 & 2) */}
                 <Card className="rounded-2xl shadow-lg border border-gray-100 lg:col-span-2">
                     <CardHeader>
+                        {/* List Name Input */}
                         <Input 
                             value={listName} 
                             onChange={(e) => setListName(e.target.value)}
                             placeholder="Enter List Name (e.g., Weekly Groceries)"
                             className="text-xl font-bold border-0 p-0 h-auto focus-visible:ring-0"
-                            disabled={!isNewList && saveListMutation.isPending}
+                            disabled={saveListMutation.isPending}
                         />
+                        {/* Category Select (for all lists) */}
+                        <select 
+                            value={selectedCategoryId} 
+                            onChange={(e) => setSelectedCategoryId(parseInt(e.target.value))}
+                            className="text-sm p-1 border rounded-md w-fit bg-white mt-2"
+                            disabled={saveListMutation.isPending || !categories.length}
+                        >
+                            <option value={0} disabled>Select Category</option>
+                            {categories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
                     </CardHeader>
                     <CardContent>
                         <Table>
@@ -243,7 +272,7 @@ const SingleShoppingListPage: React.FC = () => {
                                 <TableRow>
                                     <TableHead className="w-[45%]">Item</TableHead>
                                     <TableHead className="w-[15%] text-center">Qty</TableHead>
-                                    <TableHead className="w-[20%] text-right">Est. Price</TableHead>
+                                    <TableHead className="w-[20%] text-right">Est. Total</TableHead>
                                     <TableHead className="w-[20%] text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -252,9 +281,9 @@ const SingleShoppingListPage: React.FC = () => {
                                     <TableRow key={index}>
                                         <TableCell>{item.name}</TableCell>
                                         <TableCell className="text-center">{item.quantity}</TableCell>
-                                        <TableCell className="text-right">${item.total_price.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">${(item.total_price || (item.estimated_price * item.quantity)).toFixed(2)}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} disabled={saveListMutation.isPending}>
                                                 <Trash2 className="w-4 h-4 text-red-500" />
                                             </Button>
                                         </TableCell>
@@ -262,7 +291,9 @@ const SingleShoppingListPage: React.FC = () => {
                                 ))}
                                 <TableRow className='bg-gray-50 font-bold'>
                                     <TableCell colSpan={2}>ESTIMATED TOTAL</TableCell>
-                                    <TableCell colSpan={2} className='text-right text-lg'>${listTotal.toFixed(2)}</TableCell>
+                                    <TableCell colSpan={2} className='text-right text-lg'>
+                                        ${listTotal.toFixed(2)}
+                                    </TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>
@@ -287,7 +318,7 @@ const SingleShoppingListPage: React.FC = () => {
                                 </div>
                                 <p className="text-xs text-gray-600 mt-1">
                                     {currentCategory.name} Budget Remaining: 
-                                    <span className='font-bold ml-1'>${projectedRemaining.toFixed(2)}</span>
+                                    <span className={`font-bold ml-1 ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>${projectedRemaining.toFixed(2)}</span>
                                 </p>
                             </div>
                         )}
@@ -306,7 +337,7 @@ const SingleShoppingListPage: React.FC = () => {
                                         <FormItem><FormLabel>Quantity</FormLabel><FormControl><Input type="number" placeholder="1" {...field} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                 </div>
-                                <Button type="submit" className="w-full">
+                                <Button type="submit" className="w-full" disabled={saveListMutation.isPending}>
                                     <Plus className="w-4 h-4 mr-2" /> Add Item
                                 </Button>
                             </form>
@@ -316,10 +347,10 @@ const SingleShoppingListPage: React.FC = () => {
                         <div className="pt-4 border-t border-gray-100">
                             <Button 
                                 onClick={() => checkoutMutation.mutate(listTotal)} // Pass listTotal as default actual_total_cost
-                                disabled={listTotal === 0 || checkoutMutation.isPending || isNewList}
+                                disabled={listTotal === 0 || checkoutMutation.isPending || isNewList || saveListMutation.isPending}
                                 className="w-full h-10 text-lg bg-green-600 hover:bg-green-700"
                             >
-                                {checkoutMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShoppingCart className="w-5 h-5 mr-2" />}
+                                {checkoutMutation.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <ShoppingCart className="w-5 h-5 mr-2" />}
                                 Checkout & Record (${listTotal.toFixed(2)})
                             </Button>
                             <p className="text-xs text-gray-500 text-center mt-2">

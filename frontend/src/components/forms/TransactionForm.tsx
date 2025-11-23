@@ -55,7 +55,7 @@ const TransactionSchema = z.object({
         message: "Invalid date format. Use YYYY-MM-DD.",
     }),
     description: z.string().min(3, "Description is required."),
-    category_id: z.coerce.number().min(1, "Category is required."),
+    category_id: z.coerce.number().int().min(1, "Category is required."), // Allow 0 as default, but fail validation if 0 on submit
     notes: z.string().optional(),
     recurring: z.boolean().optional(),
 });
@@ -122,9 +122,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
             return response.data;
         },
         onSuccess: (data) => {
-            // Automatically set the predicted category
-            form.setValue('category_id', data.predicted_category_id);
-            // Optionally show a toast: `Predicted: ${categories.find(c => c.id === data.predicted_category_id)?.name}`
+            const currentCategoryId = form.getValues('category_id');
+
+            // FIX: Only automatically set the predicted category if the field 
+            // is still at its default/initial value (0). 
+            // This prevents the AI from overwriting a user's manual choice.
+            if (currentCategoryId === 0) { 
+                form.setValue('category_id', data.predicted_category_id, { shouldValidate: true });
+            }
         },
     });
     
@@ -169,14 +174,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
         saveMutation.mutate({
             ...values,
             category_id: values.category_id, // Ensure it's treated as number
-        });
+        } as TransactionData);
     };
     
     const isSubmitting = saveMutation.isPending;
     const formTitle = isEditMode ? 'Edit Transaction' : 'Add New Transaction';
     const submitButtonText = isEditMode ? 'Save Changes' : 'Record Transaction';
-    const currentCategory = categories?.find(c => c.id === form.getValues('category_id'));
     
+    // Find the AI suggested category based on mutation data
+    const aiSuggestedCategory = aiCategorizeMutation.data
+        ? categories?.find(c => c.id === aiCategorizeMutation.data.predicted_category_id)
+        : undefined;
+
     return (
         <Card className="rounded-2xl shadow-lg border border-gray-100 max-w-2xl mx-auto">
             <CardContent className="p-8">
@@ -252,7 +261,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
                                         <FormLabel className="flex items-center">
                                             <Tag className="w-4 h-4 mr-2" /> Category
                                         </FormLabel>
-                                        <Select onValueChange={val => field.onChange(parseInt(val))} value={String(field.value)}>
+                                        <Select 
+                                            onValueChange={val => field.onChange(parseInt(val))} 
+                                            value={String(field.value)}
+                                            // Handle empty/default state visually
+                                            defaultValue={String(initialData?.category_id || 0)}
+                                        >
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select a Category" />
@@ -277,10 +291,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
                                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Predicting category...
                                                 </div>
                                             )}
-                                            {aiCategorizeMutation.isSuccess && currentCategory && (
-                                                <div className="flex items-center text-green-600">
+                                            {aiCategorizeMutation.isSuccess && aiSuggestedCategory && (
+                                                <div className={`flex items-center ${form.getValues('category_id') === aiSuggestedCategory.id ? 'text-green-600' : 'text-blue-600'}`}>
                                                     <Sparkles className="w-4 h-4 mr-2" /> 
-                                                    AI Suggested: <span className='font-semibold ml-1'>{currentCategory.name}</span>
+                                                    AI Suggested: <span className='font-semibold ml-1'>{aiSuggestedCategory.name}</span>
                                                     <span className='text-xs ml-2 text-gray-500'>({(aiCategorizeMutation.data.confidence * 100).toFixed(0)}%)</span>
                                                 </div>
                                             )}
@@ -318,7 +332,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ initialData, isEditMo
                                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 rounded-lg border">
                                             <FormControl>
                                                 {/* Use a basic checkbox implementation here */}
-                                                <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-1" />
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={!!field.value} 
+                                                    onChange={e => field.onChange(e.target.checked)} 
+                                                    className="mt-1" 
+                                                />
                                             </FormControl>
                                             <div className="space-y-1 leading-none">
                                                 <FormLabel>Mark as Recurring</FormLabel>

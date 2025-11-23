@@ -45,8 +45,9 @@ interface BudgetOut {
 }
 
 // --- Validation Schema for Contribution ---
+// The only required check is positive number
 const ContributionSchema = z.object({
-    amount: z.coerce.number().positive("Amount must be positive."),
+    amount: z.coerce.number().positive("Amount must be positive.")
 });
 
 
@@ -75,9 +76,11 @@ const SingleSavingsGoalPage: React.FC = () => {
     const { data, isLoading, error } = useQuery({
         queryKey: ['singleGoal', id],
         queryFn: () => fetchGoalAndBudget(id!),
-        enabled: !!id && id !== 'new', // Disable for new goal creation form (not implemented yet)
+        enabled: !!id && id !== 'new', 
     });
     
+    // REMOVED: MAX_CONTRIBUTION is no longer used for validation
+
     // Form Setup for manual contribution
     const form = useForm<z.infer<typeof ContributionSchema>>({
         resolver: zodResolver(ContributionSchema) as Resolver<z.infer<typeof ContributionSchema>>,
@@ -87,18 +90,25 @@ const SingleSavingsGoalPage: React.FC = () => {
     // Contribution Mutation
     const contributeMutation = useMutation({
         mutationFn: async (amount: number) => {
-            // POST /goal/{id}/contribute
+            console.log("Mutation Payload:", { amount });
+            // POST /goal/{id}/contribute (assuming endpoint is /goals/{id}/contribute)
             return apiClient.post(`/goals/${id}/contribute`, { amount });
         },
         onSuccess: () => {
+            // Invalidate all relevant queries to refresh the page state
             queryClient.invalidateQueries({ queryKey: ['singleGoal', id] });
             queryClient.invalidateQueries({ queryKey: ['allGoals'] });
-            queryClient.invalidateQueries({ queryKey: ['currentBudget'] }); // Free-to-spend changes
+            queryClient.invalidateQueries({ queryKey: ['currentBudget'] });
             form.reset({ amount: 0 });
+            console.log("Contribution Successful! State invalidated and form reset.");
             // Show success toast
         },
         onError: (err: any) => {
-            alert(`Contribution Failed: ${err.response?.data?.detail || err.message}`);
+            // Enhanced logging for failure
+            const errorDetail = err.response?.data?.detail || err.message;
+            console.error("Contribution Failed:", errorDetail, err);
+            // Alerting the user about the specific error detail
+            alert(`Contribution Failed: ${errorDetail}`);
         }
     });
     
@@ -131,7 +141,8 @@ const SingleSavingsGoalPage: React.FC = () => {
     const { goal, budget } = data;
     const remaining = goal.target_amount - goal.saved_amount;
     const progressColor = goal.progress_percent >= 100 ? BRAND_GREEN : PRIMARY_BLUE;
-    const canContribute = budget.free_to_spend > 0;
+    const isComplete = remaining <= 0;
+    // REMOVED: canContribute is no longer used
 
     return (
         <motion.div 
@@ -169,7 +180,7 @@ const SingleSavingsGoalPage: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Amount Remaining</p>
-                            <p className={`text-2xl font-bold ${remaining <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-2xl font-bold ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
                                 ${Math.max(0, remaining).toFixed(2)}
                             </p>
                         </div>
@@ -190,37 +201,59 @@ const SingleSavingsGoalPage: React.FC = () => {
                         <CardTitle className="text-xl flex items-center">
                             <DollarSign className="w-5 h-5 mr-2 text-blue-500" /> Manual Contribution
                         </CardTitle>
-                        <CardDescription>Allocate funds from your current 'Free-to-Spend' balance.</CardDescription>
+                        <CardDescription>Allocate funds from your current 'Free-to-Spend' balance (can go negative).</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-gray-600 mb-4">
+                        {/* Removed logic that changes text color based on canContribute */}
+                        <p className={`text-sm mb-4 text-gray-600`}> 
                             Available to Move: <span className='font-bold' style={{ color: BRAND_GREEN }}>${budget.free_to_spend.toFixed(2)}</span>
                         </p>
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleManualContribute)} className="space-y-4">
-                                <FormField
-                                    control={form.control}
-                                    name="amount"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Amount to Contribute</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" step="0.01" placeholder="e.g., 50.00" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button 
-                                    type="submit" 
-                                    className="w-full"
-                                    disabled={contributeMutation.isPending || !canContribute}
-                                >
-                                    {contributeMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PiggyBank className="w-4 h-4 mr-2" />}
-                                    Contribute Now
-                                </Button>
-                            </form>
-                        </Form>
+                        {isComplete ? (
+                            <div className="text-center p-4 bg-green-50 rounded-lg text-green-700">
+                                <p className="font-semibold">Goal Complete! 🎉 No further contributions needed.</p>
+                            </div>
+                        ) : (
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(handleManualContribute)} className="space-y-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="amount"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                {/* Updated Label to reflect removed MAX check */}
+                                                <FormLabel>Amount to Contribute</FormLabel>
+                                                <FormControl>
+                                                    <Input 
+                                                        type="number" 
+                                                        step="0.01" 
+                                                        placeholder="e.g., 50.00" 
+                                                        {...field} 
+                                                        // FIX: Render 0 as '' so the user can type.
+                                                        value={field.value === 0 ? '' : String(field.value)}
+                                                        onChange={(e) => {
+                                                            // Pass the string value to RHF. Zod's coerce will handle the conversion.
+                                                            field.onChange(e.target.value); 
+                                                        }}
+                                                        // REMOVED: max={MAX_CONTRIBUTION}
+                                                        disabled={contributeMutation.isPending} 
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button 
+                                        type="submit" 
+                                        className="w-full"
+                                        // Button is only disabled during pending mutation
+                                        disabled={contributeMutation.isPending}
+                                    >
+                                        {contributeMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PiggyBank className="w-4 h-4 mr-2" />}
+                                        Contribute Now
+                                    </Button>
+                                </form>
+                            </Form>
+                        )}
                     </CardContent>
                 </Card>
 
